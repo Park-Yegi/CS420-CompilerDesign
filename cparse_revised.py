@@ -14,6 +14,8 @@ tokens = clex.tokens
 endline_of_file = scope_list[0][1]
 diff = endline_of_file - 1
 
+debug = True
+debug = False
 
 # translation-unit:
 def p_translation_unit(t):
@@ -315,7 +317,10 @@ def p_assignment_expression(t):
     """ assignment_expression : conditional_expression
                               | unary_expression assignment_operator assignment_expression """
     if len(t) == 2:
-        t[0] = t[1]
+        if len(t[1]) != 1 and t[1][0] == 'printf':
+            t[0] = t[1] + (t.lineno(1)-diff, )
+        else:
+            t[0] = t[1]
     else:
         t[0] = ('assign', t[1], t[2], t[3], t.lineno(1)-diff)
 
@@ -528,10 +533,12 @@ def p_statement(t):
 def p_statement_list_1(t):
     """ statement_list : statement """
     t[0] = [t[1]]
+    # t[0] = [t[1] + (t.lineno(1)-diff, )]
 
 def p_statement_list_2(t):
     """ statement_list : statement_list statement """
     t[0] = t[1] + [t[2]]
+    # t[0] = t[1] + [t[2] + (t.lineno(2)-diff, )]
 
 
 # expression-statement:
@@ -618,5 +625,6 @@ result = parser.parse(
 #     input = input_string,
 #     tracking = True)
 
-# print("** AST **")
-# print(result)
+if debug:
+    print("** AST **")
+    print(result)
