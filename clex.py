@@ -153,6 +153,9 @@ def clex():
     return lex.lex()
 
 def scope_list_ext(input_path="exampleInput.c"):
+    '''
+    Read file and return scope list that the first value indicate global scope and other scopes are incrementally ordered.
+    '''
     ## step 1: Build the lexer
     lexer = lex.lex()
 
@@ -168,16 +171,15 @@ def scope_list_ext(input_path="exampleInput.c"):
     
     while True:
         tok = lexer.token()
-        if not tok:
-            scope_list.append((stack_for_scope.pop(), lexer.lineno))
-            break      # No more input
+        if not tok:    
+            scope_list.sort()
+            scope_list.insert(0,(stack_for_scope.pop(), lexer.lineno))
+            break
 
         if tok.value == '{':
             stack_for_scope.append(tok.lineno)
         elif tok.value == '}':
             scope_list.append((stack_for_scope.pop(), tok.lineno))
-    
-    scope_list.sort()
 
     return scope_list
 

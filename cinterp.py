@@ -2,35 +2,40 @@ from clex import clex,scope_list_ext
 from cparse_revised import cparse
 from Scope import Scope
 from FlowNode import FlowNode
-
-input_path="exampleInput.c"
-with open(input_path,'r') as outfile:
-  result=cparse().parse(
-    input=outfile.read(),
-    lexer=clex(),
-    tracking=True
-  )
+import re
 debug=False
-scope_list=scope_list_ext(input_path=input_path)
-endline_of_file=scope_list[0][1]
 
 ## global variables
-func_table={}                 # interpreter/calc_value
-main_flow = None              # interpreter,calc_value
-current_scope = None          # interpreter,calc_value
-flow_stack = []               # interpreter,calc_value
-param_pass = []               # calc_value/interpreter
-jump_to_new_func = False      # interpreter,calc_value
-new_func = None               # calc_value/interpreter
-ret_val = None                # interpreter,calc_value
+func_table={}                 # interpreter(global w),calc_value(global r)
+main_flow = None              # interpreter(global w),calc_value(global w)
+current_scope = None          # interpreter(global w),calc_value(global w)
+flow_stack = []               # interpreter(global w),calc_value(global w)
+param_pass = []               # calc_value(global w),interpreter(global r)
+jump_to_new_func = False      # interpreter(global w),calc_value(global w)
+new_func = None               # interpreter(global r),calc_value(global w)
+ret_val = None                # interpreter(global w),calc_value(global w)
 
-def interpreter():
-  # declaration of (global) variables
+def interpreter(input_path="exampleInput.c",debugging=False):
+  ### STEP 0:declaration of (global) variables and preprecessing ###
+
+  # Declarate variables
   global func_table,main_flow,current_scope,flow_stack,jump_to_new_func, ret_val,current_scope
-  Scope_list = []
   program_end = False
-
-  ## MAKE (GLOBAL) FUNCTION TABLE #########
+  
+  # Set debugging mode
+  if debugging:
+    global debug
+    debug=True
+  
+  # Make AST
+  with open(input_path,'r') as outfile:
+    result=cparse().parse(
+      input=outfile.read(),
+      lexer=clex(),
+      tracking=True
+    )
+  
+  # Make function table
   for i in range(len(result)):
     if result[i][0] == "func":
       ast = result[i]
@@ -39,17 +44,12 @@ def interpreter():
       else:
         func_table[ast[2]] = {'name':ast[2], 'ret_type':ast[1], 'param_num': len(ast[3]), 'param_list': ast[3], 'flow_graph':None}
 
-  ## MAKE SCOPE and SYMBOL TABLE ##########
-  # Make Scope object per scope
-  for i in range(len(scope_list)):
-    new_scope = Scope(scope_list[i])
-    Scope_list.append(new_scope)
-
-  # Set parent scope for each Scope object
-  for i in range(len(Scope_list)):
-    if (Scope_list[i].start_line == 1 and Scope_list[i].end_line == endline_of_file):
-        Scope_list[i].parent_scope = None
-    else:
+  # make symbol table
+  # sub 1: Convert scope list to Scope objects 
+  Scope_list=list(map(lambda x: Scope(x),scope_list_ext(input_path=input_path)))
+  # sub 2: Find parent scope for each scopes
+  # note: Scope_list[0] is always global scope(see scope_list_ext)
+  for i in range(1,len(Scope_list)):
       for j in range(i):
         if (Scope_list[j].start_line <= Scope_list[i].start_line and Scope_list[j].end_line >= Scope_list[i].end_line):
           Scope_list[i].parent_scope = Scope_list[j]
@@ -58,12 +58,12 @@ def interpreter():
   # Print Scope (for debugging)
   if debug:
     print("** SCOPE LIST **")
-    for i in range(len(Scope_list)):
-      print(Scope_list[i])
+    for output in Scope_list:
+      print(output)
     print("** FUNCTION TABLE: dictionary of dictionaries **")
     print(func_table)
 
-  ## MAKE FLOW GRAPH FOR EACH FUNCTION(INCLUDING MAIN) ####
+  # make flow graph for each functions
   for i in range(len(result)):
     if result[i][0] == 'func':
       ast = result[i]
@@ -76,9 +76,22 @@ def interpreter():
 
       if ast[2] == 'main':
         main_flow = func_flow
-  ## MAIN LOOP
+
+  ### STEP 1:main loop ###
+  syntax=re.compile(r"(\Anext( (0|[1-9]\d*))?\Z)|(\Aprint [A-Za-z_]\w*\Z)|(\Atrace [A-Za-z_]\w*\Z)|(\Aquit\Z)")
   while True:
-    cmd = input(">> ")
+    cmd = input(">> ").strip()
+    #Catch incorrect syntax
+    if syntax.match(cmd) is None:
+      print("Wrong expression!!\n <code syntax>\n")
+      print((" next\n"
+             " next <integer>\n"
+             " print <ID>\n"
+             " trace <ID>\n"
+             " quit\n"))
+      continue
+
+    #instruction handler
     if (cmd[0:4] == "next"):
       if (len(cmd) == 4):
         line_num = 1
@@ -180,7 +193,6 @@ def interpreter():
         if (main_flow is None):
           print("End of program")
           program_end = True
-
     elif (cmd[0:5] == "trace"):
       if len(cmd) == 5:  # No parameter
         pass
@@ -194,7 +206,7 @@ def interpreter():
     elif (cmd[0:4] == "quit"):
       break
     else:
-      pass
+      print("Exception!")
 
 
 
@@ -396,4 +408,4 @@ while (1):
 """ 
 
 if __name__ == "__main__":
-    interpreter()
+    interpreter(debugging=False)

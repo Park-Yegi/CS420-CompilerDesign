@@ -1,4 +1,4 @@
-class Scope(object):
+class Scope():
   def __init__(self, scope):
     self.start_line = scope[0]
     self.end_line = scope[1]

@@ -608,10 +608,19 @@ def p_error(t):
 #==============================================================
 
 def cparse():
+    '''
+    It returns yacc object
+    Return: yacc.yacc
+    '''
     return yacc.yacc()
 
 def cparse_test(input_path="exampleInput.c",output_path="parse_result.txt",debug=False):
-    
+    '''
+    It reads file on input path, generate AST, and store it in output path.
+    Param: input_path: path of input file
+    Param: output_paht: path of storing the result
+    Param: debug: If it's true, it print out the result on your screen
+    '''
     ## step 1: read file
     with open(input_path,'r') as input_file:
         input_string=input_file.read()
