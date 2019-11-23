@@ -6,16 +6,8 @@
 
 import sys
 import clex
-from clex import input_string, lexer, scope_list
+from clex import clex,tokens
 import ply.yacc as yacc
-
-# Get the token map
-tokens = clex.tokens
-endline_of_file = scope_list[0][1]
-diff = endline_of_file - 1
-
-debug = True
-debug = False
 
 # translation-unit:
 def p_translation_unit(t):
@@ -43,7 +35,7 @@ def p_function_definition(t):
     # t[2][0]: function name
     # t[2][1]: function parameter type and name
     # t[3]: statements in the function
-    t[0] = ('func', t[1], t[2][0], t[2][1], t[3], (t.linespan(3)[0]-diff, t.linespan(3)[1]-diff))
+    t[0] = ('func', t[1], t[2][0], t[2][1], t[3], (t.linespan(3)[0], t.linespan(3)[1]))
 
 # type-specifier:
 def p_type_specifier(t):
@@ -318,11 +310,11 @@ def p_assignment_expression(t):
                               | unary_expression assignment_operator assignment_expression """
     if len(t) == 2:
         if len(t[1]) != 1 and t[1][0] == 'printf':
-            t[0] = t[1] + (t.lineno(1)-diff, )
+            t[0] = t[1] + (t.lineno(1), )
         else:
             t[0] = t[1]
     else:
-        t[0] = ('assign', t[1], t[2], t[3], t.lineno(1)-diff)
+        t[0] = ('assign', t[1], t[2], t[3], t.lineno(1))
 
 # assignment_operator:
 def p_assignment_operator(t):
@@ -444,11 +436,11 @@ def p_direct_abstract_declarator_7(t):
 # declaration:
 def p_declaration_1(t):
     """ declaration : type_specifier init_declarator_list SEMI """
-    t[0] = ('declare' ,t[1], t[2], t.lineno(2)-diff)
+    t[0] = ('declare' ,t[1], t[2], t.lineno(2))
 
 def p_declaration_2(t):
     """ declaration : type_specifier SEMI """
-    t[0] = ('declare', t[1], t.lineno(1)-diff)
+    t[0] = ('declare', t[1], t.lineno(1))
 
 # declaration-list:
 def p_declaration_list_1(t):
@@ -533,12 +525,12 @@ def p_statement(t):
 def p_statement_list_1(t):
     """ statement_list : statement """
     t[0] = [t[1]]
-    # t[0] = [t[1] + (t.lineno(1)-diff, )]
+    # t[0] = [t[1] + (t.lineno(1), )]
 
 def p_statement_list_2(t):
     """ statement_list : statement_list statement """
     t[0] = t[1] + [t[2]]
-    # t[0] = t[1] + [t[2] + (t.lineno(2)-diff, )]
+    # t[0] = t[1] + [t[2] + (t.lineno(2), )]
 
 
 # expression-statement:
@@ -553,36 +545,36 @@ def p_expression_statement(t):
 # selection-statement
 def p_selection_statement_1(t):
     """ selection_statement : IF LPAREN expression RPAREN statement """
-    t[0] = ('IF', 'LPAREN', t[3], 'RPAREN', t[5], (t.linespan(5)[0]-diff, t.linespan(5)[1]-diff))
+    t[0] = ('IF', 'LPAREN', t[3], 'RPAREN', t[5], (t.linespan(5)[0], t.linespan(5)[1]))
 
 def p_selection_statement_2(t):
     """ selection_statement : IF LPAREN expression RPAREN statement ELSE statement """
-    t[0] = ('IF', 'LPAREN', t[3], 'RPAREN', t[5], 'ELSE', t[7], (t.lineno(1)-diff, t.lineno(7)-diff))
+    t[0] = ('IF', 'LPAREN', t[3], 'RPAREN', t[5], 'ELSE', t[7], (t.lineno(1), t.lineno(7)))
 
 
 # iteration_statement:
 def p_iteration_statement_1(t):
     """ iteration_statement : WHILE LPAREN expression RPAREN statement """
-    t[0] = ('WHILE', 'LPAREN', t[3], 'RPAREN', t[5], (t.linespan(5)[0]-diff, t.linespan(5)[1]-diff))
+    t[0] = ('WHILE', 'LPAREN', t[3], 'RPAREN', t[5], (t.linespan(5)[0], t.linespan(5)[1]))
 
 def p_iteration_statement_2(t):
     """ iteration_statement : FOR LPAREN expression SEMI expression SEMI expression RPAREN statement """
     # """ iteration_statement : FOR LPAREN expression_opt SEMI expression_opt SEMI expression_opt RPAREN statement """
-    t[0] = ('FOR', 'LPAREN', t[3], t[5], t[7], 'RPAREN', t[9], (t.linespan(9)[0]-diff, t.linespan(9)[1]-diff))
+    t[0] = ('FOR', 'LPAREN', t[3], t[5], t[7], 'RPAREN', t[9], (t.linespan(9)[0], t.linespan(9)[1]))
 
 
 # jump_statement:
 def p_jump_statement_1(t):
     """ jump_statement : BREAK SEMI """
-    t[0] = ('BREAK', t.lineno(1)-diff)
+    t[0] = ('BREAK', t.lineno(1))
 
 def p_jump_statement_2(t):
     """ jump_statement : RETURN expression SEMI """
-    t[0] = ('RETURN', t[2], t.lineno(1)-diff)
+    t[0] = ('RETURN', t[2], t.lineno(1))
 
 def p_jump_statement_3(t):
     """ jump_statement : RETURN SEMI """
-    t[0] = ('RETURN', t.lineno(1)-diff)
+    t[0] = ('RETURN', t.lineno(1))
 
 
 # argument-expression-list:
@@ -613,18 +605,34 @@ def p_empty(t):
 def p_error(t):
     print("Whoa. We're hosed")
 
-parser = yacc.yacc()
-# result = parser.parse(
-#     input_string,
-#     lexer = lexer,
-#     tracking = True)
-result = parser.parse(
-    input_string,
-    tracking = True)
-# result = parser.parse(
-#     input = input_string,
-#     tracking = True)
+#==============================================================
 
-if debug:
-    print("** AST **")
-    print(result)
+def cparse():
+    return yacc.yacc()
+
+def cparse_test(input_path="exampleInput.c",output_path="parse_result.txt",debug=False):
+    
+    ## step 1: read file
+    with open(input_path,'r') as input_file:
+        input_string=input_file.read()
+    
+    ## step 2: parse the input string
+    parser=yacc.yacc()
+
+    result=parser.parse(
+        input=input_string,
+        lexer=clex(),
+        tracking=True
+    )        
+
+    ## step 3: write result
+    with open(output_path,'w') as output_file:
+        output_file.write(str(result))
+
+    ## step 4(optional): print result
+    if debug:
+        print("** AST **")
+        print(result)
+
+if __name__ == "__main__":
+    cparse_test(debug=True)

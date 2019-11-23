@@ -1,48 +1,202 @@
-from clex import toks, scope_list
-from cparse_revised import result, endline_of_file, debug
+from clex import clex,scope_list_ext
+from cparse_revised import cparse
 from Scope import Scope
 from FlowNode import FlowNode
 
-## MAKE (GLOBAL) FUNCTION TABLE #########
-func_table = {}
+input_path="exampleInput.c"
+with open(input_path,'r') as outfile:
+  result=cparse().parse(
+    input=outfile.read(),
+    lexer=clex(),
+    tracking=True
+  )
+debug=False
+scope_list=scope_list_ext(input_path=input_path)
+endline_of_file=scope_list[0][1]
 
-for i in range(len(result)):
-  if result[i][0] == "func":
-    ast = result[i]
-    if len(ast[3]) == 1 and ast[3][0] == "void":
-      func_table[ast[2]] = {'ret_type':ast[1], 'param_num': 0, 'param_list': [], 'flow_graph': None}
-    else:
-      func_table[ast[2]] = {'name':ast[2], 'ret_type':ast[1], 'param_num': len(ast[3]), 'param_list': ast[3], 'flow_graph':None}
+## global variables
+func_table={}                 # interpreter/calc_value
+main_flow = None              # interpreter,calc_value
+current_scope = None          # interpreter,calc_value
+flow_stack = []               # interpreter,calc_value
+param_pass = []               # calc_value/interpreter
+jump_to_new_func = False      # interpreter,calc_value
+new_func = None               # calc_value/interpreter
+ret_val = None                # interpreter,calc_value
 
-if debug:
-  print("** FUNCTION TABLE: dictionary of dictionaries **")
-  print(func_table)
-#########################################
+def interpreter():
+  # declaration of (global) variables
+  global func_table,main_flow,current_scope,flow_stack,jump_to_new_func, ret_val,current_scope
+  Scope_list = []
+  program_end = False
 
+  ## MAKE (GLOBAL) FUNCTION TABLE #########
+  for i in range(len(result)):
+    if result[i][0] == "func":
+      ast = result[i]
+      if len(ast[3]) == 1 and ast[3][0] == "void":
+        func_table[ast[2]] = {'ret_type':ast[1], 'param_num': 0, 'param_list': [], 'flow_graph': None}
+      else:
+        func_table[ast[2]] = {'name':ast[2], 'ret_type':ast[1], 'param_num': len(ast[3]), 'param_list': ast[3], 'flow_graph':None}
 
-## MAKE SCOPE and SYMBOL TABLE ##########
-Scope_list = []
+  ## MAKE SCOPE and SYMBOL TABLE ##########
+  # Make Scope object per scope
+  for i in range(len(scope_list)):
+    new_scope = Scope(scope_list[i])
+    Scope_list.append(new_scope)
 
-# Make Scope object per scope
-for i in range(len(scope_list)):
-  new_scope = Scope(scope_list[i])
-  Scope_list.append(new_scope)
-
-# Set parent scope for each Scope object
-for i in range(len(Scope_list)):
-  if (Scope_list[i].start_line == 1 and Scope_list[i].end_line == endline_of_file):
-      Scope_list[i].parent_scope = None
-  else:
-    for j in range(i):
-      if (Scope_list[j].start_line <= Scope_list[i].start_line and Scope_list[j].end_line >= Scope_list[i].end_line):
-        Scope_list[i].parent_scope = Scope_list[j]
-
-# Print Scope (for debugging)
-if debug:
-  print("** SCOPE LIST **")
+  # Set parent scope for each Scope object
   for i in range(len(Scope_list)):
-    print(Scope_list[i])
-#########################################
+    if (Scope_list[i].start_line == 1 and Scope_list[i].end_line == endline_of_file):
+        Scope_list[i].parent_scope = None
+    else:
+      for j in range(i):
+        if (Scope_list[j].start_line <= Scope_list[i].start_line and Scope_list[j].end_line >= Scope_list[i].end_line):
+          Scope_list[i].parent_scope = Scope_list[j]
+  
+  current_scope = Scope_list[0]
+  # Print Scope (for debugging)
+  if debug:
+    print("** SCOPE LIST **")
+    for i in range(len(Scope_list)):
+      print(Scope_list[i])
+    print("** FUNCTION TABLE: dictionary of dictionaries **")
+    print(func_table)
+
+  ## MAKE FLOW GRAPH FOR EACH FUNCTION(INCLUDING MAIN) ####
+  for i in range(len(result)):
+    if result[i][0] == 'func':
+      ast = result[i]
+      ast_scope = ast[5]
+      statement_list = ast[4]
+
+      func_flow = make_flow(ast, ast_scope, statement_list)
+      if ast[2] in func_table.keys():
+        func_table[ast[2]]['flow_graph'] = func_flow
+
+      if ast[2] == 'main':
+        main_flow = func_flow
+  ## MAIN LOOP
+  while True:
+    cmd = input(">> ")
+    if (cmd[0:4] == "next"):
+      if (len(cmd) == 4):
+        line_num = 1
+      else:
+        line_num = int(cmd[5:])
+      
+      for i in range(line_num):
+        if program_end:
+          break
+        
+        if debug:
+          print("line", main_flow.lineno, main_flow.statement)
+        
+        if (main_flow.statement is None):
+          for j in range(len(Scope_list)):
+            if main_flow.lineno == Scope_list[j].start_line:
+              current_scope = Scope_list[j]
+              if debug:
+                print("Change scope to", current_scope)
+              if jump_to_new_func:
+                # save parameter to new symbol_table
+                params = func_table[new_func]['param_list']
+                # for k in range(func_table[new_func]['param_num']):
+                #   current_scope.symbol_table[params[k][1]] = {'value':param_pass[k]}
+                current_scope.symbol_table[params[0][1]] = {'value':param_pass[0]}
+                current_scope.symbol_table[params[1][1][1]] = {'value':param_pass[1]}
+                if debug:
+                  current_scope.print_symboltable()
+                jump_to_new_func = False
+              break
+            elif main_flow.lineno == Scope_list[j].end_line:
+              current_scope = current_scope.parent_scope
+              if debug:
+                print("Change scope to", current_scope)
+              break
+          main_flow = main_flow.next_node
+
+        elif main_flow.statement[0] == 'declare':
+          for j in range(len(main_flow.statement[2])):
+            if type(main_flow.statement[2][j]) is tuple:  # declaration of array
+              current_scope.symbol_table[main_flow.statement[2][j][0]] = {"type":main_flow.statement[1]+"arr", "size":int(main_flow.statement[2][j][1]), "value":['N/A' for k in range(int(main_flow.statement[2][j][1]))]}
+            else:
+              current_scope.symbol_table[main_flow.statement[2][j]] = {"type":main_flow.statement[1]}
+          if debug:
+            current_scope.print_symboltable()
+          main_flow = main_flow.next_node
+
+        elif main_flow.statement[0] == 'assign':
+          assign_value(main_flow.statement[1], main_flow.statement[3], current_scope)
+          if debug:
+            current_scope.print_symboltable()
+            current_scope.parent_scope.print_symboltable()
+          if jump_to_new_func == False:
+            main_flow = main_flow.next_node
+
+        elif main_flow.statement[0] == 'FOR':
+          if main_flow.visited:
+            assign_value(main_flow.statement[4][0], get_value(main_flow.statement[4][0],current_scope)+1, current_scope)
+            if (get_value(main_flow.statement[3][0], current_scope) < get_value(main_flow.statement[3][2],current_scope)):
+              main_flow = main_flow.next_node_branch
+            else:
+              main_flow.visited = False
+              main_flow = main_flow.next_node
+          else:
+            assign_value(main_flow.statement[2][1], main_flow.statement[2][3], current_scope)
+            main_flow.visited = True
+            if (get_value(main_flow.statement[3][0], current_scope) < get_value(main_flow.statement[3][2],current_scope)):
+              main_flow = main_flow.next_node_branch
+            else:
+              main_flow = main_flow.next_node
+          
+          if debug:
+            current_scope.print_symboltable()
+
+        elif main_flow.statement[0] == 'IF':
+          if main_flow.visited:
+            main_flow.visited = False
+            main_flow = main_flow.next_node
+          else:
+            main_flow.visited = True
+            if (get_value(main_flow.statement[2][0], current_scope) > calc_value(main_flow.statement[2][2],current_scope)):
+              main_flow = main_flow.next_node_branch
+            else:
+              main_flow.visited = False
+              main_flow = main_flow.next_node
+        
+        elif main_flow.statement[0] == 'RETURN':
+          ret_val = calc_value((get_value(main_flow.statement[1][0], current_scope), main_flow.statement[1][1], get_value(main_flow.statement[1][2], current_scope)), current_scope)
+          # print(ret_val)
+          ret_addr = flow_stack.pop()
+          main_flow = ret_addr[0]
+          current_scope = ret_addr[1]
+
+        elif main_flow.statement[0] == 'printf':
+          if main_flow.statement[1][0] == '"%f\\n"':
+            print(get_value(main_flow.statement[1][1], current_scope))
+          main_flow = main_flow.next_node
+        
+        if (main_flow is None):
+          print("End of program")
+          program_end = True
+
+    elif (cmd[0:5] == "trace"):
+      if len(cmd) == 5:  # No parameter
+        pass
+      else:
+        print_trace(cmd[6:], current_scope)
+    elif (cmd[0:5] == "print"):
+      if len(cmd) == 5:  # No parameter
+        pass
+      else:
+        print_value(cmd[6:], current_scope)
+    elif (cmd[0:4] == "quit"):
+      break
+    else:
+      pass
+
+
 
 def make_flow(ast, line_scope, stat_list):
   statement_idx = 0
@@ -115,22 +269,6 @@ def make_flow_branch(ast, line_scope, stat_list, prev_node):
   cur_node.next_node = prev_node
   return start_node
 
-## MAKE FLOW GRAPH FOR EACH FUNCTION(INCLUDING MAIN) ####
-main_flow = None
-for i in range(len(result)):
-  if result[i][0] == 'func':
-    ast = result[i]
-    ast_scope = ast[5]
-    statement_list = ast[4]
-
-    func_flow = make_flow(ast, ast_scope, statement_list)
-    if ast[2] in func_table.keys():
-      func_table[ast[2]]['flow_graph'] = func_flow
-
-    if ast[2] == 'main':
-      main_flow = func_flow
-########################################################
-
 def calc_value(val_val, cur_scope):
   if type(val_val) is int:
     return val_val
@@ -149,7 +287,7 @@ def calc_value(val_val, cur_scope):
   elif len(val_val) == 2 and val_val[0] in func_table.keys():
     global ret_val
     if ret_val == None:
-      global main_flow, current_scope
+      global main_flow, current_scope,flow_stack
       flow_stack.append((main_flow, current_scope))
       func_flow_copy = func_table[val_val[0]]['flow_graph']
       main_flow = func_flow_copy
@@ -226,133 +364,6 @@ def assign_value(val_name, val_val, cur_scope):
         assign_value(val_name, val_val, cur_scope.parent_scope)
 
 
-current_scope = Scope_list[0]
-flow_stack = []
-param_pass = []
-program_end = False
-jump_to_new_func = False
-new_func = None
-ret_val = None
-## MAIN LOOP
-while (1):
-  cmd = input(">> ")
-  if (cmd[0:4] == "next"):
-    if (len(cmd) == 4):
-      line_num = 1
-    else:
-      line_num = int(cmd[5:])
-    
-    for i in range(line_num):
-      if program_end:
-        break
-      
-      if debug:
-        print("line", main_flow.lineno, main_flow.statement)
-      
-      if (main_flow.statement is None):
-        for j in range(len(Scope_list)):
-          if main_flow.lineno == Scope_list[j].start_line:
-            current_scope = Scope_list[j]
-            if debug:
-              print("Change scope to", current_scope)
-            if jump_to_new_func:
-              # save parameter to new symbol_table
-              params = func_table[new_func]['param_list']
-              # for k in range(func_table[new_func]['param_num']):
-              #   current_scope.symbol_table[params[k][1]] = {'value':param_pass[k]}
-              current_scope.symbol_table[params[0][1]] = {'value':param_pass[0]}
-              current_scope.symbol_table[params[1][1][1]] = {'value':param_pass[1]}
-              if debug:
-                current_scope.print_symboltable()
-              jump_to_new_func = False
-            break
-          elif main_flow.lineno == Scope_list[j].end_line:
-            current_scope = current_scope.parent_scope
-            if debug:
-              print("Change scope to", current_scope)
-            break
-        main_flow = main_flow.next_node
-
-      elif main_flow.statement[0] == 'declare':
-        for j in range(len(main_flow.statement[2])):
-          if type(main_flow.statement[2][j]) is tuple:  # declaration of array
-            current_scope.symbol_table[main_flow.statement[2][j][0]] = {"type":main_flow.statement[1]+"arr", "size":int(main_flow.statement[2][j][1]), "value":['N/A' for k in range(int(main_flow.statement[2][j][1]))]}
-          else:
-            current_scope.symbol_table[main_flow.statement[2][j]] = {"type":main_flow.statement[1]}
-        if debug:
-          current_scope.print_symboltable()
-        main_flow = main_flow.next_node
-
-      elif main_flow.statement[0] == 'assign':
-        assign_value(main_flow.statement[1], main_flow.statement[3], current_scope)
-        if debug:
-          current_scope.print_symboltable()
-          current_scope.parent_scope.print_symboltable()
-        if jump_to_new_func == False:
-          main_flow = main_flow.next_node
-
-      elif main_flow.statement[0] == 'FOR':
-        if main_flow.visited:
-          assign_value(main_flow.statement[4][0], get_value(main_flow.statement[4][0],current_scope)+1, current_scope)
-          if (get_value(main_flow.statement[3][0], current_scope) < get_value(main_flow.statement[3][2],current_scope)):
-            main_flow = main_flow.next_node_branch
-          else:
-            main_flow.visited = False
-            main_flow = main_flow.next_node
-        else:
-          assign_value(main_flow.statement[2][1], main_flow.statement[2][3], current_scope)
-          main_flow.visited = True
-          if (get_value(main_flow.statement[3][0], current_scope) < get_value(main_flow.statement[3][2],current_scope)):
-            main_flow = main_flow.next_node_branch
-          else:
-            main_flow = main_flow.next_node
-        
-        if debug:
-          current_scope.print_symboltable()
-
-      elif main_flow.statement[0] == 'IF':
-        if main_flow.visited:
-          main_flow.visited = False
-          main_flow = main_flow.next_node
-        else:
-          main_flow.visited = True
-          if (get_value(main_flow.statement[2][0], current_scope) > calc_value(main_flow.statement[2][2],current_scope)):
-            main_flow = main_flow.next_node_branch
-          else:
-            main_flow.visited = False
-            main_flow = main_flow.next_node
-      
-      elif main_flow.statement[0] == 'RETURN':
-        ret_val = calc_value((get_value(main_flow.statement[1][0], current_scope), main_flow.statement[1][1], get_value(main_flow.statement[1][2], current_scope)), current_scope)
-        # print(ret_val)
-        ret_addr = flow_stack.pop()
-        main_flow = ret_addr[0]
-        current_scope = ret_addr[1]
-
-      elif main_flow.statement[0] == 'printf':
-        if main_flow.statement[1][0] == '"%f\\n"':
-          print(get_value(main_flow.statement[1][1], current_scope))
-        main_flow = main_flow.next_node
-      
-      if (main_flow is None):
-        print("End of program")
-        program_end = True
-
-  elif (cmd[0:5] == "trace"):
-    if len(cmd) == 5:  # No parameter
-      pass
-    else:
-      print_trace(cmd[6:], current_scope)
-  elif (cmd[0:5] == "print"):
-    if len(cmd) == 5:  # No parameter
-      pass
-    else:
-      print_value(cmd[6:], current_scope)
-  elif (cmd[0:4] == "quit"):
-    break
-  else:
-    pass
-
 
 ## Traverse flow graph (for debugging)
 """
@@ -383,4 +394,6 @@ while (1):
   else:
     pass
 """ 
-  
+
+if __name__ == "__main__":
+    interpreter()
