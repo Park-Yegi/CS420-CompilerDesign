@@ -150,6 +150,9 @@ def t_error(t):
 
 #===============================================
 def clex():
+    '''
+    It returns clex 
+    '''
     return lex.lex()
 
 def scope_list_ext(input_path="exampleInput.c"):

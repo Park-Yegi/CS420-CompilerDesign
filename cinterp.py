@@ -6,6 +6,7 @@ import re
 debug=False
 
 ## global variables
+# These variables are going to be used in interperter and calc_value function. 
 func_table={}                 # interpreter(global w),calc_value(global r)
 main_flow = None              # interpreter(global w),calc_value(global w)
 current_scope = None          # interpreter(global w),calc_value(global w)
@@ -16,7 +17,7 @@ new_func = None               # interpreter(global r),calc_value(global w)
 ret_val = None                # interpreter(global w),calc_value(global w)
 
 def interpreter(input_path="exampleInput.c",debugging=False):
-  ### STEP 0:declaration of (global) variables and preprecessing ###
+  ### STEP 0:declaration of (global) variables and preprocessing ###
 
   # Declarate variables
   global func_table,main_flow,current_scope,flow_stack,jump_to_new_func, ret_val,current_scope
@@ -374,8 +375,6 @@ def assign_value(val_name, val_val, cur_scope):
         print("No", val_name, "in this scope")
       else:
         assign_value(val_name, val_val, cur_scope.parent_scope)
-
-
 
 ## Traverse flow graph (for debugging)
 """

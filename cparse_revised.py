@@ -632,16 +632,26 @@ def cparse_test(input_path="exampleInput.c",output_path="parse_result.txt",debug
         input=input_string,
         lexer=clex(),
         tracking=True
-    )        
+    )
+    # pretty the output string        
+    output_string=[]
+    cnt=0
+    for i in str(result):
+        if i =="(":
+            output_string.append('\n'+'    '*cnt)
+            cnt+=1
+        elif i ==")":
+            cnt-=1
+        output_string.append(i)
 
     ## step 3: write result
     with open(output_path,'w') as output_file:
-        output_file.write(str(result))
+        output_file.write(''.join(output_string))
 
     ## step 4(optional): print result
     if debug:
         print("** AST **")
-        print(result)
+        print(''.join(output_string))
 
 if __name__ == "__main__":
-    cparse_test(debug=True)
+    cparse_test(debug=False)

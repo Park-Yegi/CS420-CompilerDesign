@@ -1,1 +1,44 @@
-[('func', 'int', 'avg', [('int', 'count'), ('int', ('TIMES', 'value'))], [('declare', 'int', ['i', 'total'], 3), ('assign', 'total', '=', '0', 4), ('FOR', 'LPAREN', ('assign', 'i', '=', '0', 5), ('i', '<', 'count'), ('i', '++'), 'RPAREN', [('assign', 'total', '=', ('total', '+', ('value', 'i')), 7)], (6, 8)), ('RETURN', ('total', '/', 'count'), 10)], (2, 11)), ('func', 'int', 'main', ['void'], [('declare', 'int', ['student_number', 'count', 'i', 'sum'], 15), ('declare', 'int', [('mark', '4')], 16), ('declare', 'float', ['average'], 17), ('assign', 'count', '=', '4', 19), ('assign', 'sum', '=', '0', 20), ('FOR', 'LPAREN', ('assign', 'i', '=', '0', 22), ('i', '<', 'count'), ('i', '++'), 'RPAREN', [('assign', ('mark', 'i'), '=', ('i', '*', '30'), 24), ('assign', 'sum', '=', ('sum', '+', ('mark', 'i')), 25), ('assign', 'average', '=', ('avg', [('i', '+', '1'), 'mark']), 26), ('IF', 'LPAREN', ('average', '>', '40'), 'RPAREN', [('printf', ['"%f\\n"', 'average'], 29)], (28, 30))], (23, 31))], (14, 32))]
+[
+('func', 'int', 'avg', [
+    ('int', 'count'), 
+    ('int', 
+        ('TIMES', 'value'))], [
+    ('declare', 'int', ['i', 'total'], 2), 
+    ('assign', 'total', '=', '0', 3), 
+    ('FOR', 'LPAREN', 
+        ('assign', 'i', '=', '0', 4), 
+        ('i', '<', 'count'), 
+        ('i', '++'), 'RPAREN', [
+        ('assign', 'total', '=', 
+            ('total', '+', 
+                ('value', 'i')), 6)], 
+        (5, 7)), 
+    ('RETURN', 
+        ('total', '/', 'count'), 9)], 
+    (1, 10)), 
+('func', 'int', 'main', ['void'], [
+    ('declare', 'int', ['student_number', 'count', 'i', 'sum'], 14), 
+    ('declare', 'int', [
+        ('mark', '4')], 15), 
+    ('declare', 'float', ['average'], 16), 
+    ('assign', 'count', '=', '4', 18), 
+    ('assign', 'sum', '=', '0', 19), 
+    ('FOR', 'LPAREN', 
+        ('assign', 'i', '=', '0', 21), 
+        ('i', '<', 'count'), 
+        ('i', '++'), 'RPAREN', [
+        ('assign', 
+            ('mark', 'i'), '=', 
+            ('i', '*', '30'), 23), 
+        ('assign', 'sum', '=', 
+            ('sum', '+', 
+                ('mark', 'i')), 24), 
+        ('assign', 'average', '=', 
+            ('avg', [
+                ('i', '+', '1'), 'mark']), 25), 
+        ('IF', 'LPAREN', 
+            ('average', '>', '40'), 'RPAREN', [
+            ('printf', ['"%f\\n"', 'average'], 28)], 
+            (27, 29))], 
+        (22, 30))], 
+    (13, 31))]
