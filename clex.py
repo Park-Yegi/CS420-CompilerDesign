@@ -148,59 +148,78 @@ def t_error(t):
     print("Illegal character %s" % repr(t.value[0]))
     t.lexer.skip(1)
 
+#===============================================
+def clex():
+    '''
+    It returns clex 
+    '''
+    return lex.lex()
 
-# if __name__ == "__main__":
-#   # Build the lexer
-#   lexer = lex.lex()
+def scope_list_ext(input_path="exampleInput.c"):
+    '''
+    Read file and return scope list that the first value indicate global scope and other scopes are incrementally ordered.
+    '''
+    ## step 1: Build the lexer
+    lexer = lex.lex()
 
-#   path = input("Input the path name of input file >> ")
-#   input_file = open(path, 'r')
-#   input_string = input_file.read()
+    ## step 2: read file
+    with open(input_path,'r') as input_file:
+        input_string = input_file.read()
 
-#   # Give the lexer some input
-#   lexer.input(input_string)
-  
-#   toks = []
-#   # Tokenize
-#   while True:
-#       tok = lexer.token()
-#       if not tok:
-#           break      # No more input
-#       toks.append(tok)
-#       print(tok)
+    ## step 3: tokenize the input and return end of file
+    lexer.input(input_string)
 
-stack_for_scope = [1]
-scope_list = []
+    stack_for_scope = [1]
+    scope_list = []
+    
+    while True:
+        tok = lexer.token()
+        if not tok:    
+            scope_list.sort()
+            scope_list.insert(0,(stack_for_scope.pop(), lexer.lineno))
+            break
 
-# Build the lexer
-lexer = lex.lex()
+        if tok.value == '{':
+            stack_for_scope.append(tok.lineno)
+        elif tok.value == '}':
+            scope_list.append((stack_for_scope.pop(), tok.lineno))
 
-# path = input("Input the path name of input file >> ")
-path = "exampleInput.c"
-input_file = open(path, 'r')
-input_string = input_file.read()
+    return scope_list
 
-# Give the lexer some input
-lexer.input(input_string)
-output_file = open("token_list.txt", 'w')
+def clex_test(input_path="exampleInput.c",output_path="token_list.txt"):
 
-toks = []
-# Tokenize
-while True:
-    tok = lexer.token()
-    if not tok:
-        scope_list.append((stack_for_scope.pop(), lexer.lineno))
-        break      # No more input
-    toks.append(tok)
-    output_file.write(str(tok) + "\n")
-    if tok.value == '{':
-        stack_for_scope.append(tok.lineno)
-    elif tok.value == '}':
-        scope_list.append((stack_for_scope.pop(), tok.lineno))
+    ## step 1: Build the lexer
+    lexer = lex.lex()
 
-scope_list.sort()
-# print("*** The scopes are")
-# print(scope_list)
+    ## step 2: read file
+    with open(input_path,'r') as input_file:
+        input_string = input_file.read()
 
-input_file.close()
-output_file.close()
+    ## step 3: tokenize the input
+    lexer.input(input_string)
+
+    toks = []
+    stack_for_scope = [1]
+    scope_list = []
+    
+    while True:
+        tok = lexer.token()
+        if not tok:
+            scope_list.append((stack_for_scope.pop(), lexer.lineno))
+            break      # No more input
+        toks.append(tok)
+        if tok.value == '{':
+            stack_for_scope.append(tok.lineno)
+        elif tok.value == '}':
+            scope_list.append((stack_for_scope.pop(), tok.lineno))
+
+    scope_list.sort()
+    ## step 4: write results
+    with open(output_path,'w') as output_file:
+        output_file.write('\n'.join(map(lambda x:str(x),toks)))
+        output_file.write('\n\n'+'-'*50+'\n\n'+'<scope>\n')
+        output_file.write('\n'.join(map(lambda x:str(x),scope_list)))
+    
+
+if __name__ == "__main__":
+    clex_test()
