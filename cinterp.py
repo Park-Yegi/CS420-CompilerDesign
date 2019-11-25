@@ -3,6 +3,7 @@ from cparse_revised import cparse
 from Scope import Scope
 from FlowNode import FlowNode
 import re
+import copy
 debug=False
 # debug = True
 
@@ -111,19 +112,24 @@ def interpreter(input_path="exampleInput.c",debugging=False):
           prev_scope = None
           for j in range(len(Scope_list)):
             if main_flow.lineno == Scope_list[j].start_line:
-              current_scope = Scope_list[j]
+              scope_copy = copy.deepcopy(Scope_list[j])
+              prev_scope = current_scope
+              current_scope = scope_copy
               if debug:
                 print("Change scope to", current_scope)
               if jump_to_new_func:
                 # save parameter to new symbol_table
                 params = func_table[new_func]['param_list']
-                # for k in range(func_table[new_func]['param_num']):
-                #   current_scope.symbol_table[params[k][1]] = {'value':param_pass[k]}
-                current_scope.symbol_table[params[0][1]] = {'value':param_pass[0]}
-                current_scope.symbol_table[params[1][1][1]] = {'value':param_pass[1]}
+                for k in range(func_table[new_func]['param_num']):
+                  if type(params[k][1]) is tuple:
+                    current_scope.symbol_table[params[k][1][1]] = {'type': params[k][0]+"arr", 'value':param_pass[k], 'history':[(main_flow.lineno, param_pass[k])]}
+                  else:
+                    current_scope.symbol_table[params[k][1]] = {'type':params[k][0] , 'value':param_pass[k], 'history':[(main_flow.lineno, param_pass[k])] }
                 if debug:
                   current_scope.print_symboltable()
                 jump_to_new_func = False
+              else:
+                current_scope.parent_scope = prev_scope
               break
             elif main_flow.lineno == Scope_list[j].end_line:
               prev_scope = current_scope
@@ -167,7 +173,7 @@ def interpreter(input_path="exampleInput.c",debugging=False):
           else:
             assign_value(main_flow.statement[2][1], main_flow.statement[2][3], current_scope, main_flow.statement[2][-1])
             main_flow.visited = True
-            if (get_value(main_flow.statement[3][0], current_scope) < get_value(main_flow.statement[3][2],current_scope)):
+            if (calc_value(main_flow.statement[3], current_scope)):
               main_flow = main_flow.next_node_branch
             else:
               main_flow = main_flow.next_node
@@ -181,27 +187,26 @@ def interpreter(input_path="exampleInput.c",debugging=False):
             main_flow = main_flow.next_node
           else:
             main_flow.visited = True
-            if (get_value(main_flow.statement[2][0], current_scope) > calc_value(main_flow.statement[2][2],current_scope)):
+            if calc_value(main_flow.statement[2], current_scope):
               main_flow = main_flow.next_node_branch
             else:
               main_flow.visited = False
               main_flow = main_flow.next_node
         
         elif main_flow.statement[0] == 'RETURN':
-          ret_val = calc_value((get_value(main_flow.statement[1][0], current_scope), main_flow.statement[1][1], get_value(main_flow.statement[1][2], current_scope)), current_scope)
-          # print(ret_val)
+          ret_val = calc_value(main_flow.statement[1], current_scope)
           ret_addr = flow_stack.pop()
           main_flow = ret_addr[0]
           current_scope = ret_addr[1]
 
         elif main_flow.statement[0] == 'printf':
           if main_flow.statement[1][0] == '"%f\\n"':
-            print(get_value(main_flow.statement[1][1], current_scope))
+            print(calc_value(main_flow.statement[1][1], current_scope))
+          elif main_flow.statement[1][0] == '"%d\\n"':
+            print(calc_value(main_flow.statement[1][1], current_scope))
+          else:  # printf(const char*)
+            print(main_flow.statement[1][0][1:-1])
           main_flow = main_flow.next_node
-        
-        # if (main_flow is None):
-        #     print("End of program")
-        #     program_end = True
 
     elif (cmd[0:5] == "trace"):
       if len(cmd) == 5:  # No parameter
@@ -292,42 +297,57 @@ def make_flow_branch(ast, line_scope, stat_list, prev_node):
   return start_node
 
 def calc_value(val_val, cur_scope):
-  if type(val_val) is int:
-    return val_val
-  elif len(val_val) == 1:
-    return int(val_val)
-  elif type(val_val) is str:
-    return int(val_val)
-  elif len(val_val) == 3 and val_val[1] == '*':
-    return get_value(val_val[0], cur_scope) * int(val_val[2])
-  elif len(val_val) == 3 and val_val[1] == '+':
-    if get_value(val_val[2], cur_scope) is None:
-      return get_value(val_val[0], cur_scope) + calc_value(val_val[2], cur_scope)
-    return get_value(val_val[0], cur_scope) + get_value(val_val[2], cur_scope)
-  elif len(val_val) == 3 and val_val[1] == '/':
-    return val_val[0] / val_val[2]
-  elif len(val_val) == 2 and val_val[0] in func_table.keys():
-    global ret_val
-    if ret_val == None:
-      global main_flow, current_scope,flow_stack
-      flow_stack.append((main_flow, current_scope))
-      func_flow_copy = func_table[val_val[0]]['flow_graph']
-      main_flow = func_flow_copy
-      global jump_to_new_func
-      jump_to_new_func = True
-      global new_func
-      new_func = val_val[0]
-      global param_pass
-      param_pass = [calc_value(val_val[1][0], cur_scope), get_value(val_val[1][1], cur_scope)]
-      if debug:
-        print(param_pass)
-    else:
-      ret_val_copy = ret_val
-      ret_val = None
-      return ret_val_copy
+  if type(val_val) is not tuple:
+    if type(val_val) is int:
+      return val_val
+    elif type(val_val) is float:
+      return val_val
+    elif re.match(r'^-?\d+(?:\.\d+)?$', val_val) is not None:
+      if val_val.count('.') == 0:
+        return int(val_val)
+      else:
+        return float(val_val)
+    elif type(val_val) is str:
+      return get_value(val_val, cur_scope)
+  else:
+    if len(val_val) == 3 and val_val[1] == '*':
+      return calc_value(val_val[0], cur_scope) * calc_value(val_val[2], cur_scope)
+    elif len(val_val) == 3 and val_val[1] == '+':
+      return calc_value(val_val[0], cur_scope) + calc_value(val_val[2], cur_scope)
+    elif len(val_val) == 3 and val_val[1] == '/':
+      return calc_value(val_val[0], cur_scope) / calc_value(val_val[2], cur_scope)
+    elif len(val_val) == 3 and val_val[1] == '<':
+      return calc_value(val_val[0], cur_scope) < calc_value(val_val[2], cur_scope)
+    elif len(val_val) == 3 and val_val[1] == '>':
+      return calc_value(val_val[0], cur_scope) > calc_value(val_val[2], cur_scope)
+    elif len(val_val) == 3 and val_val[1] == '<=':
+      return calc_value(val_val[0], cur_scope) <= calc_value(val_val[2], cur_scope)
+    elif len(val_val) == 3 and val_val[1] == '>=':
+      return calc_value(val_val[0], cur_scope) >= calc_value(val_val[2], cur_scope)
+    elif len(val_val) == 2 and val_val[0] in func_table.keys():  # function call
+      global ret_val
+      if ret_val == None:
+        global main_flow, current_scope,flow_stack
+        flow_stack.append((main_flow, current_scope))
+        func_flow_copy = copy.deepcopy(func_table[val_val[0]]['flow_graph'])
+        main_flow = func_flow_copy
+        global jump_to_new_func
+        jump_to_new_func = True
+        global new_func
+        new_func = val_val[0]
+        global param_pass
+        param_pass = [calc_value(val_val[1][k], cur_scope) for k in range(len(val_val[1]))]
+        if debug:
+          print(param_pass)
+      else:
+        ret_val_copy = ret_val
+        ret_val = None
+        return ret_val_copy
+    else:   # array 접근
+      return get_value(val_val, cur_scope)
 
 def get_value(val_name, cur_scope):
-  if type(val_name) is tuple:
+  if type(val_name) is tuple:  # In case of array
     if (val_name[0] in cur_scope.symbol_table.keys()):
       return cur_scope.symbol_table[val_name[0]]['value'][get_value(val_name[1], cur_scope)]
     else:
@@ -352,7 +372,6 @@ def print_value(val_name, cur_scope):
       print('N/A')
   else:
     if cur_scope.parent_scope is None:
-      # print("No", val_name, "in this scope")
       print("Invisible variable: ", val_name)
     else:
       print_value(val_name, cur_scope.parent_scope)
@@ -364,7 +383,6 @@ def print_trace(val_name, cur_scope):
       print(val_name, "=", trace_list[i][1], "at line", trace_list[i][0])
   else:
     if cur_scope.parent_scope is None:
-      # print("No", val_name, "in this scope")
       print("Invisible variable: ", val_name)
     else:
       print_trace(val_name, cur_scope.parent_scope)
@@ -372,20 +390,22 @@ def print_trace(val_name, cur_scope):
 def assign_value(val_name, val_val, cur_scope, lineno):
   if type(val_name) is tuple:  # Assign in array
     if (val_name[0] in cur_scope.symbol_table.keys()):
-      cur_scope.symbol_table[val_name[0]]['value'][int(get_value(val_name[1] ,cur_scope))] = calc_value(val_val, cur_scope)
-      cur_scope.symbol_table[val_name[0]]['history'].append((lineno, cur_scope.symbol_table[val_name[0]]['value']))
+      cur_scope.symbol_table[val_name[0]]['value'][calc_value(val_name[1] ,cur_scope)] = calc_value(val_val, cur_scope)
+      if cur_scope.symbol_table[val_name[0]]['value'][calc_value(val_name[1] ,cur_scope)] is not None:
+        cur_scope.symbol_table[val_name[0]]['history'].append((lineno, cur_scope.symbol_table[val_name[0]]['value']))
     else:
       if cur_scope.parent_scope is None:
-        print("No", val_name, "in this scope")
+        print("Invisible variable: ", val_name)
       else:
         assign_value(val_name, val_val, cur_scope.parent_scope, lineno)
   else:
     if (val_name in cur_scope.symbol_table.keys()):
       cur_scope.symbol_table[val_name]['value'] = calc_value(val_val, cur_scope)
-      cur_scope.symbol_table[val_name]['history'].append((lineno, cur_scope.symbol_table[val_name]['value']))
+      if cur_scope.symbol_table[val_name]['value'] is not None:
+        cur_scope.symbol_table[val_name]['history'].append((lineno, cur_scope.symbol_table[val_name]['value']))
     else:
       if cur_scope.parent_scope is None:
-        print("No", val_name, "in this scope")
+        print("Invisible variable: ", val_name)
       else:
         assign_value(val_name, val_val, cur_scope.parent_scope, lineno)
 
