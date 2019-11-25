@@ -3,6 +3,7 @@ class FlowNode(object):
     self.lineno = lineno
     self.next_node = next_node
     self.next_node_branch = None
+    self.next_node_branch2 = None
     self.statement = statement
     self.visited = False
   

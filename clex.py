@@ -155,7 +155,7 @@ def clex():
     '''
     return lex.lex()
 
-def scope_list_ext(input_path="exampleInput.c"):
+def scope_list_ext(input_path=".c"):
     '''
     Read file and return scope list that the first value indicate global scope and other scopes are incrementally ordered.
     '''

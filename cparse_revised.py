@@ -549,7 +549,7 @@ def p_selection_statement_1(t):
 
 def p_selection_statement_2(t):
     """ selection_statement : IF LPAREN expression RPAREN statement ELSE statement """
-    t[0] = ('IF', 'LPAREN', t[3], 'RPAREN', t[5], 'ELSE', t[7], (t.lineno(1), t.lineno(7)))
+    t[0] = ('IF', 'LPAREN', t[3], 'RPAREN', t[5], 'ELSE', t[7], (t.linespan(5)[0], t.linespan(5)[1], t.linespan(7)[0], t.linespan(7)[1]))
 
 
 # iteration_statement:
@@ -654,4 +654,4 @@ def cparse_test(input_path="exampleInput.c",output_path="parse_result.txt",debug
         print(''.join(output_string))
 
 if __name__ == "__main__":
-    cparse_test(debug=False)
+    cparse_test(debug=True)

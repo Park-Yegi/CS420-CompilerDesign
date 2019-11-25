@@ -190,8 +190,11 @@ def interpreter(input_path="exampleInput.c",debugging=False):
             if calc_value(main_flow.statement[2], current_scope):
               main_flow = main_flow.next_node_branch
             else:
-              main_flow.visited = False
-              main_flow = main_flow.next_node
+              if main_flow.next_node_branch2 is not None:
+                main_flow = main_flow.next_node_branch2
+              else:
+                main_flow.visited = False
+                main_flow = main_flow.next_node
         
         elif main_flow.statement[0] == 'RETURN':
           ret_val = calc_value(main_flow.statement[1], current_scope)
@@ -200,12 +203,14 @@ def interpreter(input_path="exampleInput.c",debugging=False):
           current_scope = ret_addr[1]
 
         elif main_flow.statement[0] == 'printf':
-          if main_flow.statement[1][0] == '"%f\\n"':
-            print(calc_value(main_flow.statement[1][1], current_scope))
-          elif main_flow.statement[1][0] == '"%d\\n"':
-            print(calc_value(main_flow.statement[1][1], current_scope))
+          print_string = None
+          if "%f" in main_flow.statement[1][0]:
+            print_string = main_flow.statement[1][0][1:-1].replace('%f', str(calc_value(main_flow.statement[1][1], current_scope)))
+          elif "%d" in main_flow.statement[1][0]:
+            print_string = main_flow.statement[1][0][1:-1].replace('%d', str(calc_value(main_flow.statement[1][1], current_scope)))
           else:  # printf(const char*)
-            print(main_flow.statement[1][0][1:-1])
+            print_string = main_flow.statement[1][0][1:-1]
+          print(print_string.replace(r'\n', '\n'), end="")
           main_flow = main_flow.next_node
 
     elif (cmd[0:5] == "trace"):
@@ -238,10 +243,15 @@ def make_flow(ast, line_scope, stat_list):
         cur_node = cur_node.next_node
         if (stat_list[statement_idx][0] == 'FOR'):
           cur_node.statement = stat_list[statement_idx][0:6]
+          cur_node.next_node_branch = make_flow_branch(stat_list[statement_idx], stat_list[statement_idx][-1], stat_list[statement_idx][-2], cur_node)
         elif (stat_list[statement_idx][0] == 'IF'):
           cur_node.statement = stat_list[statement_idx][0:4]
-        cur_node.next_node_branch = make_flow_branch(stat_list[statement_idx], stat_list[statement_idx][-1], stat_list[statement_idx][-2], cur_node)
-        j = stat_list[statement_idx][-1][1]
+          if len(stat_list[statement_idx][-1]) >= 3:
+            cur_node.next_node_branch2 = make_flow_branch(stat_list[statement_idx][5:], stat_list[statement_idx][-1][2:], stat_list[statement_idx][-2], cur_node)
+            cur_node.next_node_branch = make_flow_branch(stat_list[statement_idx], stat_list[statement_idx][-1][0:2], stat_list[statement_idx][4], cur_node)
+          else:
+            cur_node.next_node_branch = make_flow_branch(stat_list[statement_idx], stat_list[statement_idx][-1], stat_list[statement_idx][-2], cur_node)
+        j = stat_list[statement_idx][-1][-1]
         statement_idx += 1
       elif ((type(stat_list[statement_idx][-1]) is int) and stat_list[statement_idx][-1] == j):
         cur_node.next_node = FlowNode(j)
@@ -314,6 +324,8 @@ def calc_value(val_val, cur_scope):
       return calc_value(val_val[0], cur_scope) * calc_value(val_val[2], cur_scope)
     elif len(val_val) == 3 and val_val[1] == '+':
       return calc_value(val_val[0], cur_scope) + calc_value(val_val[2], cur_scope)
+    elif len(val_val) == 3 and val_val[1] == '-':
+      return calc_value(val_val[0], cur_scope) - calc_value(val_val[2], cur_scope)
     elif len(val_val) == 3 and val_val[1] == '/':
       return calc_value(val_val[0], cur_scope) / calc_value(val_val[2], cur_scope)
     elif len(val_val) == 3 and val_val[1] == '<':
@@ -339,6 +351,7 @@ def calc_value(val_val, cur_scope):
         param_pass = [calc_value(val_val[1][k], cur_scope) for k in range(len(val_val[1]))]
         if debug:
           print(param_pass)
+        return 0
       else:
         ret_val_copy = ret_val
         ret_val = None
@@ -391,7 +404,9 @@ def assign_value(val_name, val_val, cur_scope, lineno):
   if type(val_name) is tuple:  # Assign in array
     if (val_name[0] in cur_scope.symbol_table.keys()):
       cur_scope.symbol_table[val_name[0]]['value'][calc_value(val_name[1] ,cur_scope)] = calc_value(val_val, cur_scope)
-      if cur_scope.symbol_table[val_name[0]]['value'][calc_value(val_name[1] ,cur_scope)] is not None:
+      # if cur_scope.symbol_table[val_name[0]]['value'][calc_value(val_name[1] ,cur_scope)] is not None:
+      #   cur_scope.symbol_table[val_name[0]]['history'].append((lineno, cur_scope.symbol_table[val_name[0]]['value']))
+      if jump_to_new_func == False:
         cur_scope.symbol_table[val_name[0]]['history'].append((lineno, cur_scope.symbol_table[val_name[0]]['value']))
     else:
       if cur_scope.parent_scope is None:
@@ -401,7 +416,9 @@ def assign_value(val_name, val_val, cur_scope, lineno):
   else:
     if (val_name in cur_scope.symbol_table.keys()):
       cur_scope.symbol_table[val_name]['value'] = calc_value(val_val, cur_scope)
-      if cur_scope.symbol_table[val_name]['value'] is not None:
+      # if cur_scope.symbol_table[val_name]['value'] is not None:
+      #   cur_scope.symbol_table[val_name]['history'].append((lineno, cur_scope.symbol_table[val_name]['value']))
+      if jump_to_new_func == False:
         cur_scope.symbol_table[val_name]['history'].append((lineno, cur_scope.symbol_table[val_name]['value']))
     else:
       if cur_scope.parent_scope is None:
@@ -409,35 +426,42 @@ def assign_value(val_name, val_val, cur_scope, lineno):
       else:
         assign_value(val_name, val_val, cur_scope.parent_scope, lineno)
 
-## Traverse flow graph (for debugging)
-"""
-func_name = input("Name of function >> ")
-if func_name in func_table.keys():
-  trav_sub = func_table[func_name]['flow_graph']
-
-while (1):
-  cmd = input(">> ")
-  if (cmd[0:7] == "printnb") :
-    print(trav_sub.next_node_branch)
-  elif (cmd[0:6] == "printn"):
-    print(trav_sub.next_node)
-  elif (cmd[0:5] == "print"):
-    print(trav_sub)
-  elif (cmd[0:5] == "nextb"):
-    trav_sub = trav_sub.next_node_branch
-    print(trav_sub)
-  elif (cmd[0:4] == "next"):
-    trav_sub = trav_sub.next_node
-    print(trav_sub)
-  elif (cmd[0:6] == "change"):
-    func_name = input("Name of function >> ")
-    if func_name in func_table.keys():
-      trav_sub = func_table[func_name]['flow_graph']
-  elif (cmd[0:4] == "quit"):
-    break
-  else:
-    pass
-""" 
 
 if __name__ == "__main__":
     interpreter(debugging=False)
+
+
+## Traverse flow graph (for debugging)
+
+# func_name = input("Name of function >> ")
+# if func_name in func_table.keys():
+#   trav_sub = func_table[func_name]['flow_graph']
+
+# while (1):
+#   cmd = input(">> ")
+#   if (cmd[0:8] == "printnb2") :
+#     print(trav_sub.next_node_branch2)
+#   elif (cmd[0:7] == "printnb") :
+#     print(trav_sub.next_node_branch)
+#   elif (cmd[0:6] == "printn"):
+#     print(trav_sub.next_node)
+#   elif (cmd[0:5] == "print"):
+#     print(trav_sub)
+#   elif (cmd[0:5] == "nextb2"):
+#     trav_sub = trav_sub.next_node_branch2
+#     print(trav_sub)
+#   elif (cmd[0:5] == "nextb"):
+#     trav_sub = trav_sub.next_node_branch
+#     print(trav_sub)
+#   elif (cmd[0:4] == "next"):
+#     trav_sub = trav_sub.next_node
+#     print(trav_sub)
+#   elif (cmd[0:6] == "change"):
+#     func_name = input("Name of function >> ")
+#     if func_name in func_table.keys():
+#       trav_sub = func_table[func_name]['flow_graph']
+#   elif (cmd[0:4] == "quit"):
+#     break
+#   else:
+#     pass
+  
