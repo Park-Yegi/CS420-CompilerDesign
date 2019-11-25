@@ -1,4 +1,5 @@
-int avg(int count, int *value){
+int avg(int count, int *value)
+{
   int i, total;
   total = 0;
   for(i = 0; i < count; i++)

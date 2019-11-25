@@ -4,6 +4,7 @@ from Scope import Scope
 from FlowNode import FlowNode
 import re
 debug=False
+# debug = True
 
 ## global variables
 # These variables are going to be used in interperter and calc_value function. 
@@ -107,6 +108,7 @@ def interpreter(input_path="exampleInput.c",debugging=False):
           print("line", main_flow.lineno, main_flow.statement)
         
         if (main_flow.statement is None):
+          prev_scope = None
           for j in range(len(Scope_list)):
             if main_flow.lineno == Scope_list[j].start_line:
               current_scope = Scope_list[j]
@@ -124,24 +126,30 @@ def interpreter(input_path="exampleInput.c",debugging=False):
                 jump_to_new_func = False
               break
             elif main_flow.lineno == Scope_list[j].end_line:
+              prev_scope = current_scope
               current_scope = current_scope.parent_scope
               if debug:
                 print("Change scope to", current_scope)
               break
           main_flow = main_flow.next_node
+          
+          if (main_flow is None):
+            current_scope = prev_scope
+            print("End of program")
+            program_end = True
 
         elif main_flow.statement[0] == 'declare':
           for j in range(len(main_flow.statement[2])):
             if type(main_flow.statement[2][j]) is tuple:  # declaration of array
-              current_scope.symbol_table[main_flow.statement[2][j][0]] = {"type":main_flow.statement[1]+"arr", "size":int(main_flow.statement[2][j][1]), "value":['N/A' for k in range(int(main_flow.statement[2][j][1]))]}
+              current_scope.symbol_table[main_flow.statement[2][j][0]] = {"type":main_flow.statement[1]+"arr", "size":int(main_flow.statement[2][j][1]), "value":['N/A' for k in range(int(main_flow.statement[2][j][1]))], "history": [(main_flow.statement[-1], 'N/A')]}
             else:
-              current_scope.symbol_table[main_flow.statement[2][j]] = {"type":main_flow.statement[1]}
+              current_scope.symbol_table[main_flow.statement[2][j]] = {"type":main_flow.statement[1], "history": [(main_flow.statement[-1], 'N/A')]}
           if debug:
             current_scope.print_symboltable()
           main_flow = main_flow.next_node
 
         elif main_flow.statement[0] == 'assign':
-          assign_value(main_flow.statement[1], main_flow.statement[3], current_scope)
+          assign_value(main_flow.statement[1], main_flow.statement[3], current_scope, main_flow.statement[-1])
           if debug:
             current_scope.print_symboltable()
             current_scope.parent_scope.print_symboltable()
@@ -150,14 +158,14 @@ def interpreter(input_path="exampleInput.c",debugging=False):
 
         elif main_flow.statement[0] == 'FOR':
           if main_flow.visited:
-            assign_value(main_flow.statement[4][0], get_value(main_flow.statement[4][0],current_scope)+1, current_scope)
+            assign_value(main_flow.statement[4][0], get_value(main_flow.statement[4][0],current_scope)+1, current_scope, main_flow.statement[2][-1])
             if (get_value(main_flow.statement[3][0], current_scope) < get_value(main_flow.statement[3][2],current_scope)):
               main_flow = main_flow.next_node_branch
             else:
               main_flow.visited = False
               main_flow = main_flow.next_node
           else:
-            assign_value(main_flow.statement[2][1], main_flow.statement[2][3], current_scope)
+            assign_value(main_flow.statement[2][1], main_flow.statement[2][3], current_scope, main_flow.statement[2][-1])
             main_flow.visited = True
             if (get_value(main_flow.statement[3][0], current_scope) < get_value(main_flow.statement[3][2],current_scope)):
               main_flow = main_flow.next_node_branch
@@ -191,9 +199,10 @@ def interpreter(input_path="exampleInput.c",debugging=False):
             print(get_value(main_flow.statement[1][1], current_scope))
           main_flow = main_flow.next_node
         
-        if (main_flow is None):
-          print("End of program")
-          program_end = True
+        # if (main_flow is None):
+        #     print("End of program")
+        #     program_end = True
+
     elif (cmd[0:5] == "trace"):
       if len(cmd) == 5:  # No parameter
         pass
@@ -343,7 +352,8 @@ def print_value(val_name, cur_scope):
       print('N/A')
   else:
     if cur_scope.parent_scope is None:
-      print("No", val_name, "in this scope")
+      # print("No", val_name, "in this scope")
+      print("Invisible variable: ", val_name)
     else:
       print_value(val_name, cur_scope.parent_scope)
 
@@ -354,27 +364,30 @@ def print_trace(val_name, cur_scope):
       print(val_name, "=", trace_list[i][1], "at line", trace_list[i][0])
   else:
     if cur_scope.parent_scope is None:
-      print("No", val_name, "in this scope")
+      # print("No", val_name, "in this scope")
+      print("Invisible variable: ", val_name)
     else:
       print_trace(val_name, cur_scope.parent_scope)
 
-def assign_value(val_name, val_val, cur_scope):
+def assign_value(val_name, val_val, cur_scope, lineno):
   if type(val_name) is tuple:  # Assign in array
     if (val_name[0] in cur_scope.symbol_table.keys()):
       cur_scope.symbol_table[val_name[0]]['value'][int(get_value(val_name[1] ,cur_scope))] = calc_value(val_val, cur_scope)
+      cur_scope.symbol_table[val_name[0]]['history'].append((lineno, cur_scope.symbol_table[val_name[0]]['value']))
     else:
       if cur_scope.parent_scope is None:
         print("No", val_name, "in this scope")
       else:
-        assign_value(val_name, val_val, cur_scope.parent_scope)
+        assign_value(val_name, val_val, cur_scope.parent_scope, lineno)
   else:
     if (val_name in cur_scope.symbol_table.keys()):
       cur_scope.symbol_table[val_name]['value'] = calc_value(val_val, cur_scope)
+      cur_scope.symbol_table[val_name]['history'].append((lineno, cur_scope.symbol_table[val_name]['value']))
     else:
       if cur_scope.parent_scope is None:
         print("No", val_name, "in this scope")
       else:
-        assign_value(val_name, val_val, cur_scope.parent_scope)
+        assign_value(val_name, val_val, cur_scope.parent_scope, lineno)
 
 ## Traverse flow graph (for debugging)
 """
