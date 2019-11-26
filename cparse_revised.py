@@ -605,7 +605,7 @@ def p_empty(t):
     t[0] = None
 
 def p_error(t):
-    print("Whoa. We're hosed")
+    print("Syntax error: line", t.lineno)
 
 #==============================================================
 
