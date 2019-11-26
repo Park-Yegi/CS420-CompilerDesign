@@ -311,6 +311,8 @@ def p_assignment_expression(t):
     if len(t) == 2:
         if len(t[1]) != 1 and t[1][0] == 'printf':
             t[0] = t[1] + (t.lineno(1), )
+        elif len(t[1]) != 1 and t[1][0] == 'free':
+            t[0] = t[1] + (t.lineno(1), )
         else:
             t[0] = t[1]
     else:

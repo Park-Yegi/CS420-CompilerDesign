@@ -4,8 +4,8 @@ from Scope import Scope
 from FlowNode import FlowNode
 import re
 import copy
-debug=False
-# debug = True
+# debug=False
+debug = True
 
 ## global variables
 # These variables are going to be used in interperter and calc_value function. 
@@ -81,7 +81,7 @@ def interpreter(input_path="exampleInput.c",debugging=False):
         main_flow = func_flow
 
   ### STEP 1:main loop ###
-  syntax=re.compile(r"(\Anext( (0|[1-9]\d*))?\Z)|(\Aprint [A-Za-z_]\w*\Z)|(\Atrace [A-Za-z_]\w*\Z)|(\Aquit\Z)")
+  syntax=re.compile(r"(\Anext( (0|[1-9]\d*))?\Z)|(\Aprint [A-Za-z_]\w*\Z)|(\Atrace [A-Za-z_]\w*\Z)|(\Aquit\Z)|(\Amem\Z)")
   while True:
     cmd = input(">> ").strip()
     #Catch incorrect syntax
@@ -146,8 +146,11 @@ def interpreter(input_path="exampleInput.c",debugging=False):
 
         elif main_flow.statement[0] == 'declare':
           for j in range(len(main_flow.statement[2])):
-            if type(main_flow.statement[2][j]) is tuple:  # declaration of array
-              current_scope.symbol_table[main_flow.statement[2][j][0]] = {"type":main_flow.statement[1]+"arr", "size":int(main_flow.statement[2][j][1]), "value":['N/A' for k in range(int(main_flow.statement[2][j][1]))], "history": [(main_flow.statement[-1], 'N/A')]}
+            if type(main_flow.statement[2][j]) is tuple:  
+              if (main_flow.statement[2][j][0] == 'TIMES'):  # declaration of pointer
+                current_scope.symbol_table[main_flow.statement[2][j][1]] = {"type":main_flow.statement[1]+"ptr", "history": [(main_flow.statement[-1], 'N/A')]}
+              else:    # declaration of array
+                current_scope.symbol_table[main_flow.statement[2][j][0]] = {"type":main_flow.statement[1]+"arr", "size":int(main_flow.statement[2][j][1]), "value":['N/A' for k in range(int(main_flow.statement[2][j][1]))], "history": [(main_flow.statement[-1], 'N/A')]}
             else:
               current_scope.symbol_table[main_flow.statement[2][j]] = {"type":main_flow.statement[1], "history": [(main_flow.statement[-1], 'N/A')]}
           if debug:
@@ -213,6 +216,10 @@ def interpreter(input_path="exampleInput.c",debugging=False):
           print(print_string.replace(r'\n', '\n'), end="")
           main_flow = main_flow.next_node
 
+        elif main_flow.statement[0] == 'free':
+          print("free function is called")
+          main_flow = main_flow.next_node
+
     elif (cmd[0:5] == "trace"):
       if len(cmd) == 5:  # No parameter
         pass
@@ -225,6 +232,8 @@ def interpreter(input_path="exampleInput.c",debugging=False):
         print_value(cmd[6:], current_scope)
     elif (cmd[0:4] == "quit"):
       break
+    elif (cmd[0:3] == "mem"):
+      print("mem CLI command is entered")
     else:
       print("Exception!")
 
@@ -356,6 +365,9 @@ def calc_value(val_val, cur_scope):
         ret_val_copy = ret_val
         ret_val = None
         return ret_val_copy
+    elif val_val[0] == "malloc":
+      print("malloc function is used")
+      return 0
     else:   # array 접근
       return get_value(val_val, cur_scope)
 
