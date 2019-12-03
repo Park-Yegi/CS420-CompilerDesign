@@ -2,6 +2,7 @@ from clex import clex,scope_list_ext
 from cparse_revised import cparse
 from Scope import Scope
 from FlowNode import FlowNode
+from Memory import Memory
 import re
 import copy
 # debug=False
@@ -17,12 +18,13 @@ param_pass = []               # calc_value(global w),interpreter(global r)
 jump_to_new_func = False      # interpreter(global w),calc_value(global w)
 new_func = None               # interpreter(global r),calc_value(global w)
 ret_val = None                # interpreter(global w),calc_value(global w)
+memory = None
 
 def interpreter(input_path="exampleInput.c",debugging=False):
   ### STEP 0:declaration of (global) variables and preprocessing ###
 
   # Declarate variables
-  global func_table,main_flow,current_scope,flow_stack,jump_to_new_func, ret_val,current_scope
+  global func_table,main_flow,current_scope,flow_stack,jump_to_new_func, ret_val,current_scope, memory
   program_end = False
   
   # Set debugging mode
@@ -79,6 +81,9 @@ def interpreter(input_path="exampleInput.c",debugging=False):
 
       if ast[2] == 'main':
         main_flow = func_flow
+
+  # Make memory structure
+  memory = Memory()
 
   ### STEP 1:main loop ###
   syntax=re.compile(r"(\Anext( (0|[1-9]\d*))?\Z)|(\Aprint [A-Za-z_]\w*\Z)|(\Atrace [A-Za-z_]\w*\Z)|(\Aquit\Z)|(\Amem\Z)")
@@ -217,7 +222,9 @@ def interpreter(input_path="exampleInput.c",debugging=False):
           main_flow = main_flow.next_node
 
         elif main_flow.statement[0] == 'free':
-          print("free function is called")
+          memory.free(int(current_scope.symbol_table[main_flow.statement[1][0]]['value']))
+          current_scope.symbol_table[main_flow.statement[1][0]]['history'].append((main_flow.lineno, 'N/A'))
+          del current_scope.symbol_table[main_flow.statement[1][0]]['value']
           main_flow = main_flow.next_node
 
     elif (cmd[0:5] == "trace"):
@@ -233,7 +240,7 @@ def interpreter(input_path="exampleInput.c",debugging=False):
     elif (cmd[0:4] == "quit"):
       break
     elif (cmd[0:3] == "mem"):
-      print("mem CLI command is entered")
+      print("Dynamic allocation : {}, {}".format(memory.num_used_fragment, memory.total_memory - memory.free_memory))
     else:
       print("Exception!")
 
@@ -366,8 +373,21 @@ def calc_value(val_val, cur_scope):
         ret_val = None
         return ret_val_copy
     elif val_val[0] == "malloc":
-      print("malloc function is used")
-      return 0
+      ret_address, break_table = memory.malloc(int(val_val[1][0]))
+
+      # Update reference if compaction was used
+      if break_table:
+        for original_address, new_address in break_table:
+          for val_name, val_val in current_scope.symbol_table.items():
+            if 'value' in val_val and val_val['value'] == original_address:
+              target_name = val_name
+              break
+
+          assign_value(target_name, new_address, cur_scope, main_flow.lineno)
+
+      return ret_address
+      # assign_value(, ret_address, cur_scope, )
+
     else:   # array 접근
       return get_value(val_val, cur_scope)
 
@@ -440,7 +460,7 @@ def assign_value(val_name, val_val, cur_scope, lineno):
 
 
 if __name__ == "__main__":
-    interpreter(debugging=False)
+    interpreter(input_path='memManage.c', debugging=False)
 
 
 ## Traverse flow graph (for debugging)
