@@ -99,7 +99,7 @@ def p_direct_declarator_6(t):
 
 def p_direct_declarator_7(t):
     """ direct_declarator : direct_declarator LPAREN RPAREN """
-    t[0] = t[1]
+    t[0] = (t[1],['void'])
 
 
 # constant-expression
