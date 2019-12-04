@@ -272,7 +272,7 @@ def p_postfix_expression_5(t):
     """ postfix_expression : postfix_expression PLUSPLUS
                            | postfix_expression MINUSMINUS
     """
-    t[0] = (t[1], t[2])
+    t[0] = (t[1], t[2], t.lineno(1))
 
 
 # primary-expression:
