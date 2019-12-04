@@ -99,7 +99,7 @@ def p_direct_declarator_6(t):
 
 def p_direct_declarator_7(t):
     """ direct_declarator : direct_declarator LPAREN RPAREN """
-    t[0] = (t[1],['void'])
+    t[0] = t[1]
 
 
 # constant-expression
@@ -272,7 +272,7 @@ def p_postfix_expression_5(t):
     """ postfix_expression : postfix_expression PLUSPLUS
                            | postfix_expression MINUSMINUS
     """
-    t[0] = (t[1], t[2], t.lineno(1))
+    t[0] = (t[1], t[2])
 
 
 # primary-expression:
