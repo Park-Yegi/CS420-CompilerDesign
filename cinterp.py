@@ -533,7 +533,6 @@ def print_trace(val_name, cur_scope):
 
 def assign_value(val_name, val_val, cur_scope, lineno):
   global isError
-  print(f'assign_value: val_name {val_name}, val_val {val_val}')
   if type(val_name) is tuple:  # Assign in pointer (*a) / Assign in array
     if val_name[0] == '*':
       cur_scope.symbol_table[val_name[1]]['value'][0][0] = calc_value(val_val, cur_scope)
