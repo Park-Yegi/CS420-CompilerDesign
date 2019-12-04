@@ -13,10 +13,14 @@ int avg(int count, int *value)
 int main(void)
 {
   int student_number, count, i, sum;
-  int mark[4];
+  int *sumptr, *sumptr2;
+  int mark[4], *markptr;
   float average;
 
   count = 4;
+  sumptr = &sum;
+  sumptr2 = sumptr;
+  markptr = mark;
   sum = 0;
 
   for(i = 0; i < count; i++)
@@ -29,4 +33,8 @@ int main(void)
       printf("%f\n", average);
     }
   }
+  
+  *sumptr = 1234;
+  *sumptr2 = 3456;
+  markptr[3] = 5678;
 }
