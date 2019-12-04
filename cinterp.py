@@ -10,7 +10,7 @@ import sys
 debug=False
 
 ## global variables
-# These variables are going to be used in interperter and calc_value function.
+# These variables are going to be used in interperter and calc_value function. 
 current_address = 0 
 func_table={}                 # interpreter(global w),calc_value(global r)
 main_flow = None              # interpreter(global w),calc_value(global w)
