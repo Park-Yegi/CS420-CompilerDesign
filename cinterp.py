@@ -7,7 +7,7 @@ import re
 import copy
 import sys
 
-debug=False
+debug=True
 
 ## global variables
 # These variables are going to be used in interperter and calc_value function.
@@ -142,7 +142,7 @@ def interpreter(input_path="exampleInput.c",debugging=False):
                       current_scope.symbol_table[params[k][1][1]] = {'address': current_address, 'type': params[k][0]+"arr", 'value':[param_pass[k]], 'history':[(main_flow.lineno, param_pass_addr.pop(0))]}
                       current_address += 4
                     else:
-                      ccurrent_scope.symbol_table[params[k][1]] = {'address': current_address, 'type':params[k][0] , 'value':[param_pass[k]], 'history':[(main_flow.lineno, param_pass[k])]}
+                      current_scope.symbol_table[params[k][1]] = {'address': current_address, 'type':params[k][0] , 'value':[param_pass[k]], 'history':[(main_flow.lineno, param_pass[k])]}
                       current_address += 4
                   if debug:
                     current_scope.print_symboltable()
