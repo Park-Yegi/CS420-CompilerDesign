@@ -7,7 +7,7 @@ import re
 import copy
 import sys
 
-debug=True
+debug=False
 
 ## global variables
 # These variables are going to be used in interperter and calc_value function.
