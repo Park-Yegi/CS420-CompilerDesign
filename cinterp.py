@@ -7,7 +7,7 @@ import re
 import copy
 import sys
 
-debug=False
+debug=True
 
 ## global variables
 # These variables are going to be used in interperter and calc_value function. 
@@ -91,7 +91,7 @@ def interpreter(input_path="exampleInput.c",debugging=False):
       if ast[2] == 'main':
         main_flow = func_flow
 
-  # Make memory structure
+  # Make xory structure
   memory = Memory()
 
   ### STEP 1:main loop ###
@@ -124,7 +124,7 @@ def interpreter(input_path="exampleInput.c",debugging=False):
         if debug:
           print("line", main_flow.lineno, main_flow.statement)
 
-        try:
+#        try:
           if (main_flow.statement is None):
             prev_scope = None
             for j in range(len(Scope_list)):
@@ -250,9 +250,8 @@ def interpreter(input_path="exampleInput.c",debugging=False):
             main_flow = main_flow.next_node
 
           elif main_flow.statement[0] == 'free':
-            memory.free(int(current_scope.symbol_table[main_flow.statement[1][0]]['value']))
+            memory.free(int(current_scope.symbol_table[main_flow.statement[1][0]]['history'][-1][1]))
             current_scope.symbol_table[main_flow.statement[1][0]]['history'].append((main_flow.lineno, 'N/A'))
-            del current_scope.symbol_table[main_flow.statement[1][0]]['value']
             main_flow = main_flow.next_node
           
           elif main_flow.statement[0] in current_scope.symbol_table.keys():
@@ -261,10 +260,10 @@ def interpreter(input_path="exampleInput.c",debugging=False):
             elif main_flow.statement[1] == '--':
               assign_value(main_flow.statement[0], get_value(main_flow.statement[0],current_scope)-1, current_scope, main_flow.statement[2])
             main_flow = main_flow.next_node
-        except:
-          print("Run-time error: line", main_flow.lineno)
-          isError=True
-          break
+#        except:
+#          print("Run-time error: line", main_flow.lineno)
+#          isError=True
+#          break
         if isError:
           break
       
@@ -432,7 +431,7 @@ def calc_value(val_val, cur_scope):
       if break_table:
         for original_address, new_address in break_table:
           for val_name, val_val in current_scope.symbol_table.items():
-            if 'value' in val_val and val_val['value'] == original_address:
+            if val_val['history'][-1][1] == original_address:
               target_name = val_name
               break
 
@@ -467,22 +466,43 @@ def get_value(val_name, cur_scope):
         return get_value(val_name, cur_scope.parent_scope)
 
 def get_address(val_name, cur_scope):
-  if type(val_name) is tuple:  # In case of array
-    if (val_name[0] in cur_scope.symbol_table.keys()):
-      return cur_scope.symbol_table[val_name[0]]['address']
-    else:
-      if cur_scope.parent_scope is None:
-        return None
-      else:
-        return get_address(val_name, cur_scope.parent_scope)
+  if (val_name in cur_scope.symbol_table.keys()):
+    return cur_scope.symbol_table[val_name]['address']
   else:
-    if (val_name in cur_scope.symbol_table.keys()):
-      return cur_scope.symbol_table[val_name]['address']
+    if cur_scope.parent_scope is None:
+      return None
     else:
-      if cur_scope.parent_scope is None:
-        return None
-      else:
-        return get_address(val_name, cur_scope.parent_scope)
+      return get_address(val_name, cur_scope.parent_scope)
+
+def get_history(val_name, cur_scope):
+  if (val_name in cur_scope.symbol_table.keys()):
+    return cur_scope.symbol_table[val_name]['history']
+  else:
+    if cur_scope.parent_scope is None:
+      return None
+    else:
+      return get_history(val_name, cur_scope.parent_scope)
+
+def get_reference_history(val_name, cur_scope):
+  if (val_name in cur_scope.symbol_table.keys()):
+    if 'reference_history' in cur_scope.symbol_table[val_name].keys():
+      return cur_scope.symbol_table[val_name]['reference_history']
+    else:
+      return None
+  else:
+    if cur_scope.parent_scope is None:
+      return None
+    else:
+      return get_reference_history(val_name, cur_scope.parent_scope)
+
+def get_size(val_name, cur_scope):
+  if (val_name in cur_scope.symbol_table.keys()):
+    return cur_scope.symbol_table[val_name]['size']
+  else:
+    if cur_scope.parent_scope is None:
+      return None
+    else:
+      return get_size(val_name, cur_scope.parent_scope)
 
 def print_value(val_name, cur_scope):
   if (val_name in cur_scope.symbol_table.keys()):
@@ -534,7 +554,7 @@ def print_trace(val_name, cur_scope):
 def assign_value(val_name, val_val, cur_scope, lineno):
   global isError
   if type(val_name) is tuple:  # Assign in pointer (*a) / Assign in array
-    if val_name[0] == '*':
+    if val_name[0] == '*' and val_name[1] in cur_scope.symbol_table.keys():
       cur_scope.symbol_table[val_name[1]]['value'][0][0] = calc_value(val_val, cur_scope)
       cur_scope.symbol_table[val_name[1]]['reference_history'].append((lineno, cur_scope.symbol_table[val_name[1]]['value'][0][0]))
     elif (val_name[0] in cur_scope.symbol_table.keys()):
@@ -551,19 +571,38 @@ def assign_value(val_name, val_val, cur_scope, lineno):
   else:
     if (val_name in cur_scope.symbol_table.keys()):
       if 'ptr' in cur_scope.symbol_table[val_name]['type'] or 'arr' in cur_scope.symbol_table[val_name]['type']: # assign to pointer(array)
-        if type(val_val) is tuple: # pointer = &variable form
-          cur_scope.symbol_table[val_name]['value'] = [calc_value(val_val, cur_scope)]
-          cur_scope.symbol_table[val_name]['size'] = 1
-          cur_scope.symbol_table[val_name]['reference_history'] = cur_scope.symbol_table[val_val[1]]['history']
-          if jump_to_new_func == False:
-            cur_scope.symbol_table[val_name]['history'].append((lineno, cur_scope.symbol_table[val_val[1]]['address']))
-        else: # pointer = pointer form
-          cur_scope.symbol_table[val_name]['value'][0] = calc_value(val_val, cur_scope)
-          cur_scope.symbol_table[val_name]['size'] = cur_scope.symbol_table[val_val]['size']
-          if 'reference_history' in cur_scope.symbol_table[val_val].keys():
-            cur_scope.symbol_table[val_name]['reference_history'] = cur_scope.symbol_table[val_val]['reference_history']
-          if jump_to_new_func == False:
-            cur_scope.symbol_table[val_name]['history'].append((lineno, cur_scope.symbol_table[val_val]['history'][-1][1]))
+        if type(val_val) is tuple:
+          if val_val[0] == '&': # pointer = &variable form
+            cur_scope.symbol_table[val_name]['value'] = [calc_value(val_val, cur_scope)]
+            cur_scope.symbol_table[val_name]['size'] = 1
+            cur_scope.symbol_table[val_name]['reference_history'] = get_history(val_val[1], cur_scope)
+            if jump_to_new_func == False:
+              cur_scope.symbol_table[val_name]['history'].append((lineno, get_address(val_val[1], cur_scope)))
+          elif val_val[0] == 'malloc': # pointer = malloc() form
+            cur_scope.symbol_table[val_name]['value'] = [None]
+            cur_scope.symbol_table[val_name]['size'] = 0
+            if jump_to_new_func == False:
+              addr = calc_value(val_val, cur_scope)
+              if addr:
+                cur_scope.symbol_table[val_name]['history'].append((lineno, addr))
+              else:
+                cur_scope.symbol_table[val_name]['history'].append((lineno, 'N/A'))
+          else:
+            raise Exception("Error occured in pointer assignment")
+        else:
+          if type(val_val) == int: # pointer = address form
+            cur_scope.symbol_table[val_name]['value'] = [None]
+            cur_scope.symbol_table[val_name]['size'] = 0
+            if jump_to_new_func == False:
+              cur_scope.symbol_table[val_name]['history'].append((lineno, val_val))
+          else: # pointer = pointer form
+            cur_scope.symbol_table[val_name]['value'][0] = calc_value(val_val, cur_scope)
+            cur_scope.symbol_table[val_name]['size'] = get_size(val_val, cur_scope)
+            ref_history = get_reference_history(val_val, cur_scope)
+            if ref_history:
+              cur_scope.symbol_table[val_name]['reference_history'] = ref_history
+            if jump_to_new_func == False:
+              cur_scope.symbol_table[val_name]['history'].append((lineno, cur_scope.symbol_table[val_val]['history'][-1][1]))
           
       else:
         cur_scope.symbol_table[val_name]['value'][0] = calc_value(val_val, cur_scope)
