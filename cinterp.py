@@ -175,13 +175,13 @@ def interpreter(input_path="exampleInput.c",debugging=False):
           for j in range(len(main_flow.statement[2])):
             if type(main_flow.statement[2][j]) is tuple:  
               if (main_flow.statement[2][j][0] == 'TIMES'):  # declaration of pointer
-                current_scope.symbol_table[main_flow.statement[2][j][1]] = {"address": current_address, "type":main_flow.statement[1]+"ptr", "value":[None], "size":0, "history": [(main_flow.statement[-1], 'N/A')]}
+                current_scope.symbol_table[main_flow.statement[2][j][1]] = {"address": current_address, "type":main_flow.statement[1]+"ptr", "value":['N/A'], "size":0, "history": [(main_flow.statement[-1], 'N/A')]}
                 current_address += 4
               else:    # declaration of array
-                current_scope.symbol_table[main_flow.statement[2][j][0]] = {"address": current_address, "type":main_flow.statement[1]+"arr", "value":[None], "size":int(main_flow.statement[2][j][1]), "value":[['N/A' for k in range(int(main_flow.statement[2][j][1]))]], "history": [(main_flow.statement[-1], current_address)]}
+                current_scope.symbol_table[main_flow.statement[2][j][0]] = {"address": current_address, "type":main_flow.statement[1]+"arr", "size":int(main_flow.statement[2][j][1]), "value":[['N/A' for k in range(int(main_flow.statement[2][j][1]))]], "history": [(main_flow.statement[-1], current_address)]}
                 current_address += 4 * int(main_flow.statement[2][j][1])
             else:
-              current_scope.symbol_table[main_flow.statement[2][j]] = {"address": current_address, "type":main_flow.statement[1], "value":[None], "history": [(main_flow.statement[-1], 'N/A')]}
+              current_scope.symbol_table[main_flow.statement[2][j]] = {"address": current_address, "type":main_flow.statement[1], "value":['N/A'], "history": [(main_flow.statement[-1], 'N/A')]}
               current_address += 4
           if debug:
             current_scope.print_symboltable()
@@ -600,7 +600,7 @@ def assign_value(val_name, val_val, cur_scope, lineno):
             if jump_to_new_func == False:
               cur_scope.symbol_table[val_name]['history'].append((lineno, get_address(val_val[1], cur_scope)))
           elif val_val[0] == 'malloc': # pointer = malloc() form
-            cur_scope.symbol_table[val_name]['value'] = [None]
+            cur_scope.symbol_table[val_name]['value'] = ['N/A']
             cur_scope.symbol_table[val_name]['size'] = 0
             if jump_to_new_func == False:
               addr = calc_value(val_val, cur_scope)
@@ -612,7 +612,7 @@ def assign_value(val_name, val_val, cur_scope, lineno):
             raise Exception("Error occured in pointer assignment")
         else:
           if type(val_val) == int: # pointer = address form
-            cur_scope.symbol_table[val_name]['value'] = [None]
+            cur_scope.symbol_table[val_name]['value'] = ['N/A']
             cur_scope.symbol_table[val_name]['size'] = 0
             if jump_to_new_func == False:
               cur_scope.symbol_table[val_name]['history'].append((lineno, val_val))
