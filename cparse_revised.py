@@ -647,8 +647,9 @@ def cparse_test(input_path="exampleInput.c",output_path="parse_result.txt",debug
         output_string.append(i)
 
     ## step 3: write result
-    with open(output_path,'w') as output_file:
-        output_file.write(''.join(output_string))
+    if output_path:
+        with open(output_path,'w') as output_file:
+            output_file.write(''.join(output_string))
 
     ## step 4(optional): print result
     if debug:
