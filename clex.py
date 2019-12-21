@@ -215,10 +215,11 @@ def clex_test(input_path="exampleInput.c",output_path="token_list.txt"):
 
     scope_list.sort()
     ## step 4: write results
-    with open(output_path,'w') as output_file:
-        output_file.write('\n'.join(map(lambda x:str(x),toks)))
-        output_file.write('\n\n'+'-'*50+'\n\n'+'<scope>\n')
-        output_file.write('\n'.join(map(lambda x:str(x),scope_list)))
+    if output_path:
+        with open(output_path,'w') as output_file:
+            output_file.write('\n'.join(map(lambda x:str(x),toks)))
+            output_file.write('\n\n'+'-'*50+'\n\n'+'<scope>\n')
+            output_file.write('\n'.join(map(lambda x:str(x),scope_list)))
     
 
 if __name__ == "__main__":

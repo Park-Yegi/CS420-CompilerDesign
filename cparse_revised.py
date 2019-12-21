@@ -99,7 +99,7 @@ def p_direct_declarator_6(t):
 
 def p_direct_declarator_7(t):
     """ direct_declarator : direct_declarator LPAREN RPAREN """
-    t[0] = t[1]
+    t[0] = (t[1],['void'])
 
 
 # constant-expression
@@ -272,7 +272,7 @@ def p_postfix_expression_5(t):
     """ postfix_expression : postfix_expression PLUSPLUS
                            | postfix_expression MINUSMINUS
     """
-    t[0] = (t[1], t[2])
+    t[0] = (t[1], t[2], t.lineno(1))
 
 
 # primary-expression:
@@ -647,8 +647,9 @@ def cparse_test(input_path="exampleInput.c",output_path="parse_result.txt",debug
         output_string.append(i)
 
     ## step 3: write result
-    with open(output_path,'w') as output_file:
-        output_file.write(''.join(output_string))
+    if output_path:
+        with open(output_path,'w') as output_file:
+            output_file.write(''.join(output_string))
 
     ## step 4(optional): print result
     if debug:
