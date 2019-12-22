@@ -356,6 +356,44 @@ def make_flow(ast, line_scope, stat_list):
 
   return start_node
 
+# def make_flow_branch(ast, line_scope, stat_list, prev_node):
+#   statement_idx = 0
+#   start_node = FlowNode(line_scope[0])
+#   cur_node = start_node
+  
+#   j = line_scope[0]+1
+#   while (j <= line_scope[1]):
+#     if (statement_idx < len(stat_list)):
+#       if (type(stat_list[statement_idx][-1]) is tuple and stat_list[statement_idx][-1][0] == j+1):
+#         cur_node.next_node = FlowNode(j)
+#         cur_node = cur_node.next_node
+#         if (stat_list[statement_idx][0] == 'FOR'):
+#           cur_node.statement = stat_list[statement_idx][0:6]
+#         elif (stat_list[statement_idx][0] == 'IF'):
+#           cur_node.statement = stat_list[statement_idx][0:4]
+#         elif (stat_list[statement_idx][0] == 'WHILE'):
+#           cur_node.statement = stat_list[statement_idx][0:4]
+#         cur_node.next_node_branch = make_flow_branch(stat_list[statement_idx], stat_list[statement_idx][-1], stat_list[statement_idx][-2], cur_node)
+#         j = stat_list[statement_idx][-1][1]
+#         statement_idx += 1
+#       elif ((type(stat_list[statement_idx][-1]) is int) and stat_list[statement_idx][-1] == j):
+#         cur_node.next_node = FlowNode(j)
+#         cur_node.next_node.statement = stat_list[statement_idx]
+#         statement_idx += 1
+#         cur_node = cur_node.next_node
+#       else:
+#         cur_node.next_node = FlowNode(j)
+#         cur_node = cur_node.next_node
+#     else:
+#       cur_node.next_node = FlowNode(j)
+#       cur_node = cur_node.next_node
+    
+#     # Advance
+#     j += 1
+
+#   cur_node.next_node = prev_node
+#   return start_node
+
 def make_flow_branch(ast, line_scope, stat_list, prev_node):
   statement_idx = 0
   start_node = FlowNode(line_scope[0])
@@ -364,17 +402,23 @@ def make_flow_branch(ast, line_scope, stat_list, prev_node):
   j = line_scope[0]+1
   while (j <= line_scope[1]):
     if (statement_idx < len(stat_list)):
-      if (type(stat_list[statement_idx][-1]) is tuple and stat_list[statement_idx][-1][0] == j+1):
+      if (type(stat_list[statement_idx][-1]) is tuple and (stat_list[statement_idx][-1][0] == j+1 or stat_list[statement_idx][-1][0] == j)):
         cur_node.next_node = FlowNode(j)
         cur_node = cur_node.next_node
         if (stat_list[statement_idx][0] == 'FOR'):
           cur_node.statement = stat_list[statement_idx][0:6]
+          cur_node.next_node_branch = make_flow_branch(stat_list[statement_idx], stat_list[statement_idx][-1], stat_list[statement_idx][-2], cur_node)
         elif (stat_list[statement_idx][0] == 'IF'):
           cur_node.statement = stat_list[statement_idx][0:4]
+          if len(stat_list[statement_idx][-1]) >= 3:
+            cur_node.next_node_branch2 = make_flow_branch(stat_list[statement_idx][5:], stat_list[statement_idx][-1][2:], stat_list[statement_idx][-2], cur_node)
+            cur_node.next_node_branch = make_flow_branch(stat_list[statement_idx], stat_list[statement_idx][-1][0:2], stat_list[statement_idx][4], cur_node)
+          else:
+            cur_node.next_node_branch = make_flow_branch(stat_list[statement_idx], stat_list[statement_idx][-1], stat_list[statement_idx][-2], cur_node)
         elif (stat_list[statement_idx][0] == 'WHILE'):
           cur_node.statement = stat_list[statement_idx][0:4]
-        cur_node.next_node_branch = make_flow_branch(stat_list[statement_idx], stat_list[statement_idx][-1], stat_list[statement_idx][-2], cur_node)
-        j = stat_list[statement_idx][-1][1]
+          cur_node.next_node_branch = make_flow_branch(stat_list[statement_idx], stat_list[statement_idx][-1], stat_list[statement_idx][-2], cur_node)
+        j = stat_list[statement_idx][-1][-1]
         statement_idx += 1
       elif ((type(stat_list[statement_idx][-1]) is int) and stat_list[statement_idx][-1] == j):
         cur_node.next_node = FlowNode(j)
@@ -655,7 +699,7 @@ def isNum(n):
     return False
 
 if __name__ == "__main__":
-  interpreter(input_path='./testcode/testcase.c', debugging=False)
+  interpreter(input_path='./testcode/nest_if.c', debugging=True)
 
 
 ## Traverse flow graph (for debugging)
