@@ -2,7 +2,7 @@ from clex import clex,scope_list_ext
 from cparse_revised import cparse
 from Scope import Scope
 from FlowNode import FlowNode
-from Memory import Memory
+from Memory import Memory, compute_static_allocation
 import re
 import copy
 import sys
@@ -101,7 +101,8 @@ def interpreter(input_path="exampleInput.c",debugging=False):
       if ast[2] == 'main':
         main_flow = func_flow
 
-  # Make xory structure
+  # Make memory structure
+  compute_static_allocation(result)
   memory = Memory()
 
   ### STEP 1:main loop ###
@@ -264,8 +265,8 @@ def interpreter(input_path="exampleInput.c",debugging=False):
           main_flow = main_flow.next_node
 
         elif main_flow.statement[0] == 'free':
-          memory.free(int(current_scope.symbol_table[main_flow.statement[1][0]]['history'][-1][1]))
-          current_scope.symbol_table[main_flow.statement[1][0]]['history'].append((main_flow.lineno, 'N/A'))
+          target_scope = memory.free(int(current_scope.symbol_table[main_flow.statement[1][0]]['history'][-1][1]))
+          target_scope.symbol_table[main_flow.statement[1][0]]['history'].append((main_flow.lineno, 'N/A'))
           main_flow = main_flow.next_node
         
         elif main_flow.statement[0] in current_scope.symbol_table.keys():
@@ -443,17 +444,17 @@ def calc_value(val_val, cur_scope):
         ret_val = None
         return ret_val_copy
     elif val_val[0] == "malloc":
-      ret_address, break_table = memory.malloc(int(val_val[1][0]))
+      ret_address, break_table = memory.malloc(int(val_val[1][0]), cur_scope)
 
       # Update reference if compaction was used
       if break_table:
-        for original_address, new_address in break_table:
-          for val_name, val_val in current_scope.symbol_table.items():
+        for target_scope, original_address, new_address in break_table:
+          for val_name, val_val in target_scope.symbol_table.items():
             if val_val['history'][-1][1] == original_address:
               target_name = val_name
               break
 
-          assign_value(target_name, new_address, cur_scope, main_flow.lineno)
+          assign_value(target_name, new_address, target_scope, main_flow.lineno)
 
       return ret_address
       # assign_value(, ret_address, cur_scope, )
@@ -604,7 +605,9 @@ def assign_value(val_name, val_val, cur_scope, lineno):
             cur_scope.symbol_table[val_name]['size'] = 0
             if jump_to_new_func == False:
               addr = calc_value(val_val, cur_scope)
-              if addr:
+              if addr == "OOM":
+                return
+              elif addr:
                 cur_scope.symbol_table[val_name]['history'].append((lineno, addr))
               else:
                 cur_scope.symbol_table[val_name]['history'].append((lineno, 'N/A'))
