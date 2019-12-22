@@ -78,12 +78,16 @@ def interpreter(input_path="exampleInput.c",debugging=False):
   for output in Scope_list:
     scope_start_line.append(output.start_line)
     scope_end_line.append(output.end_line)
+  scope_start_line.reverse()
+  scope_end_line.reverse()
+  Scope_list.reverse()
 
   # Print Scope (for debugging)
   if debug:
     print("** SCOPE LIST **")
     for output in Scope_list:
       print(output)
+    print(scope_start_line)
     print("** FUNCTION TABLE: dictionary of dictionaries **")
     print(func_table)
 
@@ -203,7 +207,6 @@ def interpreter(input_path="exampleInput.c",debugging=False):
                 assign_value(main_flow.statement[4][0], get_value(main_flow.statement[4][0],current_scope)+1, current_scope, main_flow.statement[4][2])
               elif main_flow.statement[4][1] == '--':
                 assign_value(main_flow.statement[4][0], get_value(main_flow.statement[4][0],current_scope)-1, current_scope, main_flow.statement[4][2])
-            #assign_value(main_flow.statement[4][0], get_value(main_flow.statement[4][0],current_scope)+1, current_scope, main_flow.statement[2][-1])
             if (get_value(main_flow.statement[3][0], current_scope) < get_value(main_flow.statement[3][2],current_scope)):
               main_flow = main_flow.next_node_branch
             else:
@@ -244,6 +247,8 @@ def interpreter(input_path="exampleInput.c",debugging=False):
         elif main_flow.statement[0] == 'RETURN':
           if len(main_flow.statement) > 2: # if there is a return value
             ret_val = calc_value(main_flow.statement[1], current_scope)
+            if debug:
+              print("Return value: ", ret_val)
 
           if len(flow_stack) != 0:
             ret_addr = flow_stack.pop()
@@ -457,7 +462,6 @@ def calc_value(val_val, cur_scope):
           assign_value(target_name, new_address, target_scope, main_flow.lineno)
 
       return ret_address
-      # assign_value(, ret_address, cur_scope, )
 
     else:   # array 접근
       return get_value(val_val, cur_scope)
@@ -581,8 +585,6 @@ def assign_value(val_name, val_val, cur_scope, lineno):
       cur_scope.symbol_table[val_name[1]]['reference_history'].append((lineno, cur_scope.symbol_table[val_name[1]]['value'][0][0]))
     elif (val_name[0] in cur_scope.symbol_table.keys()):
       cur_scope.symbol_table[val_name[0]]['value'][0][calc_value(val_name[1] ,cur_scope)] = calc_value(val_val, cur_scope)
-      # if cur_scope.symbol_table[val_name[0]]['value'][calc_value(val_name[1] ,cur_scope)] is not None:
-      #   cur_scope.symbol_table[val_name[0]]['history'].append((lineno, cur_scope.symbol_table[val_name[0]]['value']))
     else:
       if cur_scope.parent_scope is None:
         #print("Invisible variable: ", val_name)
@@ -648,7 +650,7 @@ def isNum(n):
     return False
 
 if __name__ == "__main__":
-  interpreter(input_path='exampleInput.c', debugging=False)
+  interpreter(input_path='./testcode/recursive.c', debugging=False)
 
 
 ## Traverse flow graph (for debugging)
