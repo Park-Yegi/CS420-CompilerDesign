@@ -117,12 +117,17 @@ def interpreter(input_path="exampleInput.c",debugging=False):
 
     #Catch incorrect syntax
     if syntax.match(cmd) is None:
-      print("Wrong expression!!\n <code syntax>\n")
-      print((" next\n"
-             " next <integer>\n"
-             " print <ID>\n"
-             " trace <ID>\n"
-             " quit\n"))
+      if (cmd[0:4] == "next"):
+        print("Incorrect command usage: try 'next [lines]'")
+      elif (cmd[0:5] == "print") or (cmd[0:5] == "trace"):
+        print("Invalid typing of the variable name")
+      else:
+        print("Wrong expression!!\n <code syntax>\n")
+        print((" next\n"
+              " next <integer>\n"
+              " print <ID>\n"
+              " trace <ID>\n"
+              " quit\n"))
       continue
 
     #instruction handler
@@ -139,151 +144,151 @@ def interpreter(input_path="exampleInput.c",debugging=False):
         if debug:
           print("line", main_flow.lineno, main_flow.statement)
 
-        # try:
-        if (main_flow.statement is None):
-          prev_scope = None
-          if main_flow.lineno in scope_start_line:
-            scope_copy = copy.deepcopy(Scope_list[scope_start_line.index(main_flow.lineno)])
-            prev_scope = current_scope
-            current_scope = scope_copy
-            if debug:
-              print("Change scope to", current_scope)
-            if jump_to_new_func:
-              # save parameter to new symbol_table
-              params = func_table[new_func]['param_list']
-              for k in range(func_table[new_func]['param_num']):
-                if type(params[k][1]) is tuple:
-                  current_scope.symbol_table[params[k][1][1]] = {'address': current_address, 'type': params[k][0]+"arr", 'value':[param_pass[k]], 'history':[(main_flow.lineno, param_pass_addr.pop(0))]}
-                  current_address += 4
-                else:
-                  current_scope.symbol_table[params[k][1]] = {'address': current_address, 'type':params[k][0] , 'value':[param_pass[k]], 'history':[(main_flow.lineno, param_pass[k])]}
-                  current_address += 4
+        try:
+          if (main_flow.statement is None):
+            prev_scope = None
+            if main_flow.lineno in scope_start_line:
+              scope_copy = copy.deepcopy(Scope_list[scope_start_line.index(main_flow.lineno)])
+              prev_scope = current_scope
+              current_scope = scope_copy
               if debug:
-                current_scope.print_symboltable()
-              jump_to_new_func = False
-            else:
-              current_scope.parent_scope = prev_scope
-          elif main_flow.lineno in scope_end_line:
-            prev_scope = current_scope
-            current_scope = current_scope.parent_scope
-            if debug:
-              print("Change scope to", current_scope)
-          
-          main_flow = main_flow.next_node
-          
-          if (main_flow is None):
-            current_scope = prev_scope
-            print("End of program")
-            program_end = True
+                print("Change scope to", current_scope)
+              if jump_to_new_func:
+                # save parameter to new symbol_table
+                params = func_table[new_func]['param_list']
+                for k in range(func_table[new_func]['param_num']):
+                  if type(params[k][1]) is tuple:
+                    current_scope.symbol_table[params[k][1][1]] = {'address': current_address, 'type': params[k][0]+"arr", 'value':[param_pass[k]], 'history':[(main_flow.lineno, param_pass_addr.pop(0))]}
+                    current_address += 4
+                  else:
+                    current_scope.symbol_table[params[k][1]] = {'address': current_address, 'type':params[k][0] , 'value':[param_pass[k]], 'history':[(main_flow.lineno, param_pass[k])]}
+                    current_address += 4
+                if debug:
+                  current_scope.print_symboltable()
+                jump_to_new_func = False
+              else:
+                current_scope.parent_scope = prev_scope
+            elif main_flow.lineno in scope_end_line:
+              prev_scope = current_scope
+              current_scope = current_scope.parent_scope
+              if debug:
+                print("Change scope to", current_scope)
+            
+            main_flow = main_flow.next_node
+            
+            if (main_flow is None):
+              current_scope = prev_scope
+              print("End of program")
+              program_end = True
 
-        elif main_flow.statement[0] == 'declare':
-          for j in range(len(main_flow.statement[2])):
-            if type(main_flow.statement[2][j]) is tuple:  
-              if (main_flow.statement[2][j][0] == 'TIMES'):  # declaration of pointer
-                current_scope.symbol_table[main_flow.statement[2][j][1]] = {"address": current_address, "type":main_flow.statement[1]+"ptr", "value":['N/A'], "size":0, "history": [(main_flow.statement[-1], 'N/A')]}
+          elif main_flow.statement[0] == 'declare':
+            for j in range(len(main_flow.statement[2])):
+              if type(main_flow.statement[2][j]) is tuple:  
+                if (main_flow.statement[2][j][0] == 'TIMES'):  # declaration of pointer
+                  current_scope.symbol_table[main_flow.statement[2][j][1]] = {"address": current_address, "type":main_flow.statement[1]+"ptr", "value":['N/A'], "size":0, "history": [(main_flow.statement[-1], 'N/A')]}
+                  current_address += 4
+                else:    # declaration of array
+                  current_scope.symbol_table[main_flow.statement[2][j][0]] = {"address": current_address, "type":main_flow.statement[1]+"arr", "size":int(main_flow.statement[2][j][1]), "value":[['N/A' for k in range(int(main_flow.statement[2][j][1]))]], "history": [(main_flow.statement[-1], current_address)]}
+                  current_address += 4 * int(main_flow.statement[2][j][1])
+              else:
+                current_scope.symbol_table[main_flow.statement[2][j]] = {"address": current_address, "type":main_flow.statement[1], "value":['N/A'], "history": [(main_flow.statement[-1], 'N/A')]}
                 current_address += 4
-              else:    # declaration of array
-                current_scope.symbol_table[main_flow.statement[2][j][0]] = {"address": current_address, "type":main_flow.statement[1]+"arr", "size":int(main_flow.statement[2][j][1]), "value":[['N/A' for k in range(int(main_flow.statement[2][j][1]))]], "history": [(main_flow.statement[-1], current_address)]}
-                current_address += 4 * int(main_flow.statement[2][j][1])
-            else:
-              current_scope.symbol_table[main_flow.statement[2][j]] = {"address": current_address, "type":main_flow.statement[1], "value":['N/A'], "history": [(main_flow.statement[-1], 'N/A')]}
-              current_address += 4
-          if debug:
-            current_scope.print_symboltable()
-          main_flow = main_flow.next_node
-
-        elif main_flow.statement[0] == 'assign':
-          assign_value(main_flow.statement[1], main_flow.statement[3], current_scope, main_flow.statement[-1])
-          if debug:
-            current_scope.print_symboltable()
-            current_scope.parent_scope.print_symboltable()
-          if jump_to_new_func == False:
+            if debug:
+              current_scope.print_symboltable()
             main_flow = main_flow.next_node
 
-        elif main_flow.statement[0] == 'FOR':
-          if main_flow.visited:
-            if main_flow.statement[4][0] in current_scope.symbol_table.keys():
-              if main_flow.statement[4][1] == '++':
-                assign_value(main_flow.statement[4][0], get_value(main_flow.statement[4][0],current_scope)+1, current_scope, main_flow.statement[4][2])
-              elif main_flow.statement[4][1] == '--':
-                assign_value(main_flow.statement[4][0], get_value(main_flow.statement[4][0],current_scope)-1, current_scope, main_flow.statement[4][2])
-            if (get_value(main_flow.statement[3][0], current_scope) < get_value(main_flow.statement[3][2],current_scope)):
-              main_flow = main_flow.next_node_branch
-            else:
-              main_flow.visited = False
+          elif main_flow.statement[0] == 'assign':
+            assign_value(main_flow.statement[1], main_flow.statement[3], current_scope, main_flow.statement[-1])
+            if debug:
+              current_scope.print_symboltable()
+              current_scope.parent_scope.print_symboltable()
+            if jump_to_new_func == False:
               main_flow = main_flow.next_node
-          else:
-            assign_value(main_flow.statement[2][1], main_flow.statement[2][3], current_scope, main_flow.statement[2][-1])
-            main_flow.visited = True
-            if (calc_value(main_flow.statement[3], current_scope)):
-              main_flow = main_flow.next_node_branch
-            else:
-              main_flow = main_flow.next_node
-          
-          if debug:
-            current_scope.print_symboltable()
 
-        elif main_flow.statement[0] == 'IF':
-          if main_flow.visited:
-            main_flow.visited = False
-            main_flow = main_flow.next_node
-          else:
-            main_flow.visited = True
-            if calc_value(main_flow.statement[2], current_scope):
-              main_flow = main_flow.next_node_branch
-            else:
-              if main_flow.next_node_branch2 is not None:
-                main_flow = main_flow.next_node_branch2
+          elif main_flow.statement[0] == 'FOR':
+            if main_flow.visited:
+              if main_flow.statement[4][0] in current_scope.symbol_table.keys():
+                if main_flow.statement[4][1] == '++':
+                  assign_value(main_flow.statement[4][0], get_value(main_flow.statement[4][0],current_scope)+1, current_scope, main_flow.statement[4][2])
+                elif main_flow.statement[4][1] == '--':
+                  assign_value(main_flow.statement[4][0], get_value(main_flow.statement[4][0],current_scope)-1, current_scope, main_flow.statement[4][2])
+              if (get_value(main_flow.statement[3][0], current_scope) < get_value(main_flow.statement[3][2],current_scope)):
+                main_flow = main_flow.next_node_branch
               else:
                 main_flow.visited = False
                 main_flow = main_flow.next_node
+            else:
+              assign_value(main_flow.statement[2][1], main_flow.statement[2][3], current_scope, main_flow.statement[2][-1])
+              main_flow.visited = True
+              if (calc_value(main_flow.statement[3], current_scope)):
+                main_flow = main_flow.next_node_branch
+              else:
+                main_flow = main_flow.next_node
+            
+            if debug:
+              current_scope.print_symboltable()
 
-        elif main_flow.statement[0] == 'WHILE':
-          if calc_value(main_flow.statement[2], current_scope):
-            main_flow = main_flow.next_node_branch
-          else:
+          elif main_flow.statement[0] == 'IF':
+            if main_flow.visited:
+              main_flow.visited = False
+              main_flow = main_flow.next_node
+            else:
+              main_flow.visited = True
+              if calc_value(main_flow.statement[2], current_scope):
+                main_flow = main_flow.next_node_branch
+              else:
+                if main_flow.next_node_branch2 is not None:
+                  main_flow = main_flow.next_node_branch2
+                else:
+                  main_flow.visited = False
+                  main_flow = main_flow.next_node
+
+          elif main_flow.statement[0] == 'WHILE':
+            if calc_value(main_flow.statement[2], current_scope):
+              main_flow = main_flow.next_node_branch
+            else:
+              main_flow = main_flow.next_node
+
+          elif main_flow.statement[0] == 'RETURN':
+            if len(main_flow.statement) > 2: # if there is a return value
+              ret_val = calc_value(main_flow.statement[1], current_scope)
+              if debug:
+                print("Return value: ", ret_val)
+
+            if len(flow_stack) != 0:
+              ret_addr = flow_stack.pop()
+              main_flow = ret_addr[0]
+              current_scope = ret_addr[1]
+            else:
+              print("End of program")
+              program_end = True
+
+          elif main_flow.statement[0] == 'printf':
+            print_string = None
+            if "%f" in main_flow.statement[1][0]:
+              print_string = main_flow.statement[1][0][1:-1].replace('%f', str(calc_value(main_flow.statement[1][1], current_scope)))
+            elif "%d" in main_flow.statement[1][0]:
+              print_string = main_flow.statement[1][0][1:-1].replace('%d', str(calc_value(main_flow.statement[1][1], current_scope)))
+            else:  # printf(const char*)
+              print_string = main_flow.statement[1][0][1:-1]
+            print(print_string.replace(r'\n', '\n'), end="")
             main_flow = main_flow.next_node
 
-        elif main_flow.statement[0] == 'RETURN':
-          if len(main_flow.statement) > 2: # if there is a return value
-            ret_val = calc_value(main_flow.statement[1], current_scope)
-            if debug:
-              print("Return value: ", ret_val)
-
-          if len(flow_stack) != 0:
-            ret_addr = flow_stack.pop()
-            main_flow = ret_addr[0]
-            current_scope = ret_addr[1]
-          else:
-            print("End of program")
-            program_end = True
-
-        elif main_flow.statement[0] == 'printf':
-          print_string = None
-          if "%f" in main_flow.statement[1][0]:
-            print_string = main_flow.statement[1][0][1:-1].replace('%f', str(calc_value(main_flow.statement[1][1], current_scope)))
-          elif "%d" in main_flow.statement[1][0]:
-            print_string = main_flow.statement[1][0][1:-1].replace('%d', str(calc_value(main_flow.statement[1][1], current_scope)))
-          else:  # printf(const char*)
-            print_string = main_flow.statement[1][0][1:-1]
-          print(print_string.replace(r'\n', '\n'), end="")
-          main_flow = main_flow.next_node
-
-        elif main_flow.statement[0] == 'free':
-          target_scope = memory.free(int(current_scope.symbol_table[main_flow.statement[1][0]]['history'][-1][1]))
-          target_scope.symbol_table[main_flow.statement[1][0]]['history'].append((main_flow.lineno, 'N/A'))
-          main_flow = main_flow.next_node
-        
-        elif main_flow.statement[0] in current_scope.symbol_table.keys():
-          if main_flow.statement[1] == '++':
-            assign_value(main_flow.statement[0], get_value(main_flow.statement[0],current_scope)+1, current_scope, main_flow.statement[2])
-          elif main_flow.statement[1] == '--':
-            assign_value(main_flow.statement[0], get_value(main_flow.statement[0],current_scope)-1, current_scope, main_flow.statement[2])
-          main_flow = main_flow.next_node
-        # except:
-        #   print("Run-time error: line", main_flow.lineno)
-        #   isError=True
-        #   break
+          elif main_flow.statement[0] == 'free':
+            target_scope = memory.free(int(current_scope.symbol_table[main_flow.statement[1][0]]['history'][-1][1]))
+            target_scope.symbol_table[main_flow.statement[1][0]]['history'].append((main_flow.lineno, 'N/A'))
+            main_flow = main_flow.next_node
+          
+          elif main_flow.statement[0] in current_scope.symbol_table.keys():
+            if main_flow.statement[1] == '++':
+              assign_value(main_flow.statement[0], get_value(main_flow.statement[0],current_scope)+1, current_scope, main_flow.statement[2])
+            elif main_flow.statement[1] == '--':
+              assign_value(main_flow.statement[0], get_value(main_flow.statement[0],current_scope)-1, current_scope, main_flow.statement[2])
+            main_flow = main_flow.next_node
+        except:
+          print("Run-time error: line", main_flow.lineno)
+          isError=True
+          break
         if isError:
           break
       
@@ -650,7 +655,7 @@ def isNum(n):
     return False
 
 if __name__ == "__main__":
-  interpreter(input_path='./testcode/recursive.c', debugging=False)
+  interpreter(input_path='./testcode/testcase.c', debugging=False)
 
 
 ## Traverse flow graph (for debugging)
