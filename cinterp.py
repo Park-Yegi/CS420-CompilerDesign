@@ -699,7 +699,7 @@ def isNum(n):
     return False
 
 if __name__ == "__main__":
-  interpreter(input_path='./testcode/nest_if.c', debugging=True)
+  interpreter(input_path='./testcode/testcase.c', debugging=False)
 
 
 ## Traverse flow graph (for debugging)
